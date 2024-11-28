@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Variables
+# General Variables
 CONTAINER_NETWORK="vpn_network"
 DOCKER_DIR="$HOME/docker"
 ENV_FILE="$DOCKER_DIR/.env"
@@ -27,6 +27,15 @@ NZBGET_IMAGE="linuxserver/nzbget"
 
 WATCHTOWER_CONTAINER="watchtower"
 WATCHTOWER_IMAGE="containrrr/watchtower"
+
+# USB and Samba Variables
+USB_DEVICE="/dev/sda1"           # Update this to match your USB device (use lsblk to verify)
+MOUNT_POINT="/mnt/usbdrive"      # Where the drive will be mounted
+SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
+
+# Media folder names
+MOVIES_FOLDER="Movies"       # Name of the folder for movies
+TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows
 
 # Exit on error
 set -e
@@ -83,6 +92,95 @@ EOF
         echo ".env file already exists. Update credentials if necessary."
     fi
 }
+
+# Configure USB drive and Samba share
+setup_usb_share() {
+    echo "Setting up USB drive and Samba share..."
+
+    # Dynamically detect the USB drive (8TB device)
+    USB_DEVICE=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | grep -E '8T.+disk' | awk '{print "/dev/"$1}')
+    if [[ -z "$USB_DEVICE" ]]; then
+        echo "Error: Could not detect the USB drive. Ensure it is plugged in and formatted."
+        exit 1
+    fi
+    echo "USB drive detected: $USB_DEVICE"
+
+    # Create mount point if it doesn't exist
+    if [[ ! -d "$MOUNT_POINT" ]]; then
+        echo "Creating mount point at $MOUNT_POINT..."
+        sudo mkdir -p "$MOUNT_POINT"
+    fi
+
+    # Mount the USB drive if not already mounted
+    if ! mount | grep -q "$MOUNT_POINT"; then
+        echo "Mounting USB drive..."
+        sudo mount "$USB_DEVICE" "$MOUNT_POINT"
+        if [[ $? -ne 0 ]]; then
+            echo "Error: Failed to mount USB drive at $MOUNT_POINT. Check the device and try again."
+            exit 1
+        fi
+    else
+        echo "USB drive already mounted at $MOUNT_POINT."
+    fi
+
+    # Ask the user whether to create the media directories
+    read -p "Do you want to create the media directories ($MOVIES_FOLDER, $TVSHOWS_FOLDER) on the USB drive? [y/N]: " CREATE_DIRS
+    CREATE_DIRS=${CREATE_DIRS:-N} # Default to 'N' if no input
+    if [[ "$CREATE_DIRS" =~ ^[Yy]$ ]]; then
+        echo "Creating media directories..."
+        sudo mkdir -p "$MOUNT_POINT/$MOVIES_FOLDER"
+        sudo mkdir -p "$MOUNT_POINT/$TVSHOWS_FOLDER"
+        echo "Directories created: $MOVIES_FOLDER and $TVSHOWS_FOLDER."
+    else
+        echo "Skipping media directory creation."
+    fi
+
+    # Install Samba if not already installed
+    if ! command -v smbd &> /dev/null; then
+        echo "Installing Samba..."
+        sudo apt update && sudo apt install -y samba
+    fi
+
+    # Backup the existing Samba config if not already backed up
+    if [[ ! -f "$SAMBA_CONFIG.bak" ]]; then
+        echo "Backing up existing Samba configuration..."
+        sudo cp "$SAMBA_CONFIG" "$SAMBA_CONFIG.bak"
+    fi
+
+    # Add Samba share configuration
+    echo "Configuring Samba share..."
+    sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
+
+[$MOVIES_FOLDER]
+   path = $MOUNT_POINT/$MOVIES_FOLDER
+   browseable = yes
+   read only = no
+   guest ok = yes
+
+[$TVSHOWS_FOLDER]
+   path = $MOUNT_POINT/$TVSHOWS_FOLDER
+   browseable = yes
+   read only = no
+   guest ok = yes
+EOF
+
+    # Restart Samba service
+    echo "Restarting Samba service..."
+    sudo systemctl restart smbd
+
+    echo "Samba share configured successfully!"
+    echo "Local network shares available:"
+    echo " - Movies: \\<Your Pi's IP>\\$MOVIES_FOLDER"
+    echo " - TV Shows: \\<Your Pi's IP>\\$TVSHOWS_FOLDER"
+}
+
+
+    else
+        echo "USB drive not detected. Please plug in the drive and re-run the script."
+    fi
+}
+
+
 
 # Create Docker Compose file
 create_docker_compose() {
@@ -231,6 +329,7 @@ main() {
     setup_docker_network
     create_env_file
     create_docker_compose
+    setup_usb_share
     deploy_docker_compose
     echo "Setup complete. Update the .env file with credentials if not already done."
 }
