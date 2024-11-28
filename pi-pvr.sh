@@ -92,11 +92,31 @@ create_env_file() {
         read -s -p "Enter your PIA_PASSWORD: " PIA_PASSWORD
         echo ""
         read -p "Enter your TAILSCALE_AUTH_KEY (or press Enter to skip): " TAILSCALE_AUTH_KEY
+        read -p "Enter your Jackett username: " JACKETT_USERNAME
+        read -s -p "Enter your Jackett password: " JACKETT_PASSWORD
+        echo ""
+        read -p "Enter your Sonarr username: " SONARR_USERNAME
+        read -s -p "Enter your Sonarr password: " SONARR_PASSWORD
+        echo ""
+        read -p "Enter your Radarr username: " RADARR_USERNAME
+        read -s -p "Enter your Radarr password: " RADARR_PASSWORD
+        echo ""
+        read -p "Enter your NZBGet username: " NZBGET_USERNAME
+        read -s -p "Enter your NZBGet password: " NZBGET_PASSWORD
+        echo ""
 
         cat > "$ENV_FILE" <<EOF
 PIA_USERNAME=$PIA_USERNAME
 PIA_PASSWORD=$PIA_PASSWORD
 TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
+JACKETT_USERNAME=$JACKETT_USERNAME
+JACKETT_PASSWORD=$JACKETT_PASSWORD
+SONARR_USERNAME=$SONARR_USERNAME
+SONARR_PASSWORD=$SONARR_PASSWORD
+RADARR_USERNAME=$RADARR_USERNAME
+RADARR_PASSWORD=$RADARR_PASSWORD
+NZBGET_USERNAME=$NZBGET_USERNAME
+NZBGET_PASSWORD=$NZBGET_PASSWORD
 EOF
         echo ".env file created at $ENV_FILE."
         chmod 600 "$ENV_FILE"
@@ -108,6 +128,12 @@ EOF
 # Configure USB drive and Samba share
 setup_usb_share() {
     echo "Setting up USB drive and Samba share..."
+
+    # Prompt user to specify USB device and mount point
+    read -p "Enter the USB device to mount (default: /dev/sda1): " USB_DEVICE_INPUT
+    USB_DEVICE=${USB_DEVICE_INPUT:-/dev/sda1}
+    read -p "Enter the mount point (default: /mnt/usbdrive): " MOUNT_POINT_INPUT
+    MOUNT_POINT=${MOUNT_POINT_INPUT:-/mnt/usbdrive}
 
     # Dynamically detect the USB drive (8TB device)
     USB_DEVICE=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | grep -E '8T.+disk' | awk '{print "/dev/"$1}')
@@ -318,31 +344,42 @@ preconfigure_apps() {
     # Jackett
     if [[ -f "$DOCKER_DIR/jackett/ServerConfig.json" ]]; then
         sudo sed -i 's|.*BasePath.*|  "BasePath": "/downloads",|' "$DOCKER_DIR/jackett/ServerConfig.json"
+        sudo sed -i "s|"Password": ".*"|"Password": "$JACKETT_PASSWORD"|" "$DOCKER_DIR/jackett/ServerConfig.json"
+        sudo sed -i "s|"Username": ".*"|"Username": "$JACKETT_USERNAME"|" "$DOCKER_DIR/jackett/ServerConfig.json"
     fi
 
     # Sonarr
     if [[ -f "$DOCKER_DIR/sonarr/config.xml" ]]; then
         sudo sed -i 's|<RootFolderPath>.*</RootFolderPath>|<RootFolderPath>/mnt/usbdrive/TVShows</RootFolderPath>|' "$DOCKER_DIR/sonarr/config.xml"
         sudo sed -i 's|<DownloadClientPath>.*</DownloadClientPath>|<DownloadClientPath>/downloads</DownloadClientPath>|' "$DOCKER_DIR/sonarr/config.xml"
+        sudo sed -i "s|<Username>.*</Username>|<Username>$SONARR_USERNAME</Username>|" "$DOCKER_DIR/sonarr/config.xml"
+        sudo sed -i "s|<Password>.*</Password>|<Password>$SONARR_PASSWORD</Password>|" "$DOCKER_DIR/sonarr/config.xml"
     fi
 
     # Radarr
     if [[ -f "$DOCKER_DIR/radarr/config.xml" ]]; then
         sudo sed -i 's|<RootFolderPath>.*</RootFolderPath>|<RootFolderPath>/mnt/usbdrive/Movies</RootFolderPath>|' "$DOCKER_DIR/radarr/config.xml"
         sudo sed -i 's|<DownloadClientPath>.*</DownloadClientPath>|<DownloadClientPath>/downloads</DownloadClientPath>|' "$DOCKER_DIR/radarr/config.xml"
+        sudo sed -i "s|<Username>.*</Username>|<Username>$RADARR_USERNAME</Username>|" "$DOCKER_DIR/radarr/config.xml"
+        sudo sed -i "s|<Password>.*</Password>|<Password>$RADARR_PASSWORD</Password>|" "$DOCKER_DIR/radarr/config.xml"
     fi
 
     # Transmission
     if [[ -f "$DOCKER_DIR/transmission/settings.json" ]]; then
+        read -p "Enter Transmission RPC username (default: admin): " TRANSMISSION_RPC_USERNAME
+        TRANSMISSION_RPC_USERNAME=${TRANSMISSION_RPC_USERNAME:-admin}
+        read -s -p "Enter Transmission RPC password: " TRANSMISSION_RPC_PASSWORD
         sudo sed -i 's|"download-dir": ".*"|"download-dir": "/downloads"|' "$DOCKER_DIR/transmission/settings.json"
-        sudo sed -i 's|"rpc-username": ".*"|"rpc-username": "your_username"|' "$DOCKER_DIR/transmission/settings.json"
-        sudo sed -i 's|"rpc-password": ".*"|"rpc-password": "your_password"|' "$DOCKER_DIR/transmission/settings.json"
+        sudo sed -i 's|"rpc-username": ".*"|"rpc-username": "$TRANSMISSION_RPC_USERNAME"|' "$DOCKER_DIR/transmission/settings.json"
+        sudo sed -i 's|"rpc-password": ".*"|"rpc-password": "$TRANSMISSION_RPC_PASSWORD"|' "$DOCKER_DIR/transmission/settings.json"
     fi
 
     # NZBGet
     if [[ -f "$DOCKER_DIR/nzbget/nzbget.conf" ]]; then
         sudo sed -i 's|MainDir=.*|MainDir=/downloads|' "$DOCKER_DIR/nzbget/nzbget.conf"
         sudo sed -i 's|DestDir=.*|DestDir=/mnt/usbdrive/Movies|' "$DOCKER_DIR/nzbget/nzbget.conf"
+        sudo sed -i "s|ControlUsername=.*|ControlUsername=$NZBGET_USERNAME|" "$DOCKER_DIR/nzbget/nzbget.conf"
+        sudo sed -i "s|ControlPassword=.*|ControlPassword=$NZBGET_PASSWORD|" "$DOCKER_DIR/nzbget/nzbget.conf"
     fi
 
     # Restart affected containers to apply changes
