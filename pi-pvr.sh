@@ -1,5 +1,7 @@
 #!/bin/bash
-
+# Server Variables
+SHARE_METHOD=""
+SERVER_IP=$(hostname -I | awk '{print $1}')
 # General Variables
 CONTAINER_NETWORK="vpn_network"
 DOCKER_DIR="$HOME/docker"
@@ -145,6 +147,8 @@ choose_sharing_method() {
         SHARE_METHOD="1"
         setup_usb_and_samba
     fi
+
+    SERVER_IP=$(hostname -I | awk '{print $1}') # Ensure SERVER_IP is set here for global use
 }
 
 
@@ -491,7 +495,7 @@ main() {
     done
 
     echo "File shares available:"
-    if [[ "$SHARE_METHOD" == "1" || -z "$SHARE_METHOD" ]]; then
+    if [[ "$SHARE_METHOD" == "1" ]]; then
         echo "  Samba Shares:"
         echo "    \\$SERVER_IP\\Movies"
         echo "    \\$SERVER_IP\\TVShows"
