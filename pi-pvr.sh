@@ -73,9 +73,9 @@ setup_tailscale() {
     echo "Starting Tailscale and authenticating..."
     if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
         echo "TAILSCALE_AUTH_KEY is not set. Tailscale will require manual authentication."
-        sudo tailscale up
+        sudo tailscale up --accept-routes=false
     else
-        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY"
+        sudo tailscale up --accept-routes=false --authkey="$TAILSCALE_AUTH_KEY"
     fi
 
     echo "Tailscale is running."
