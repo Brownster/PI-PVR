@@ -353,7 +353,7 @@ services:
   $WATCHTOWER_CONTAINER:
     image: $WATCHTOWER_IMAGE
     container_name: $WATCHTOWER_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+    network_mode: "bridge"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
