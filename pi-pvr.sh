@@ -83,6 +83,52 @@ setup_tailscale() {
     echo "Manage devices at https://login.tailscale.com."
 }
 
+setup_pia_vpn() {
+    echo "Setting up PIA WireGuard VPN..."
+
+    # Clone the PIA manual-connections repository if not already present
+    if [[ ! -d "manual-connections" ]]; then
+        echo "Cloning PIA manual-connections repository..."
+        git clone https://github.com/pia-foss/manual-connections.git
+    else
+        echo "PIA manual-connections repository already exists. Skipping clone."
+    fi
+
+    # Navigate to the repository
+    cd manual-connections || { echo "Failed to navigate to manual-connections directory."; exit 1; }
+
+    # Install required dependencies, including git
+    echo "Installing dependencies..."
+    sudo apt update
+    sudo apt install -y curl jq wireguard-tools git
+
+    # Prompt user for PIA credentials
+    read -p "Enter your PIA username: " PIA_USERNAME
+    read -s -p "Enter your PIA password: " PIA_PASSWORD
+    echo ""
+
+    # Run the setup script with environment variables
+    echo "Running PIA setup script..."
+    sudo VPN_PROTOCOL=wireguard \
+        DISABLE_IPV6=yes \
+        PIA_PF=false \
+        PIA_DNS=true \
+        PIA_USER="$PIA_USERNAME" \
+        PIA_PASS="$PIA_PASSWORD" \
+        ./run_setup.sh
+
+    if [[ $? -eq 0 ]]; then
+        echo "PIA WireGuard VPN setup complete."
+    else
+        echo "Error: PIA setup script failed."
+        exit 1
+    fi
+
+    # Return to the previous directory
+    cd ..
+}
+
+
 #choose smb or nfs (smb if using windows devices to connect)
 choose_sharing_method() {
     echo "Choose your preferred file sharing method:"
@@ -256,42 +302,36 @@ EOF
 }
 
 
-
 # Create Docker Compose file
 create_docker_compose() {
     echo "Creating Docker Compose file..."
     cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
-  $VPN_CONTAINER:
-    image: $VPN_IMAGE
-    container_name: $VPN_CONTAINER
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
     cap_add:
       - NET_ADMIN
     devices:
-      - /dev/net/tun
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ./manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro # Mount the WireGuard config file
     environment:
-      - VPN_SERVICE_PROVIDER=pia
+      - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=wireguard
-      - VPN_USER=\${PIA_USERNAME}
-      - VPN_PASS=\${PIA_PASSWORD}
-      - SERVER_COUNTRIES=US
-      - TZ=$TIMEZONE
-      - LOG_LEVEL=info
-    ports:
-      - 9117:9117 # Jackett
-      - 8989:8989 # Sonarr
-      - 7878:7878 # Radarr
-      - 9091:9091 # Transmission
-      - 6789:6789 # NZBGet
-    networks:
-      - $CONTAINER_NETWORK
     healthcheck:
       test: curl --fail http://localhost:8000 || exit 1
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    ports:
+      - 9117:9117   # Jackett
+      - 8989:8989   # Sonarr
+      - 7878:7878   # Radarr
+      - 9091:9091   # Transmission
+      - 6789:6789   # NZBGet
 
   $JACKETT_CONTAINER:
     image: $JACKETT_IMAGE
@@ -425,6 +465,7 @@ main() {
     echo "Starting setup..."
     create_env_file
     setup_tailscale
+    setup_pia_vpn
     create_docker_compose
     choose_sharing_method
     install_dependencies
