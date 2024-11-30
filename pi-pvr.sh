@@ -219,12 +219,23 @@ EOF
 
 
 setup_usb_and_nfs() {
+    echo "installing necessary NHF packages"
+    sudo apt-get install -y nfs-kernel-server
     echo "Setting up NFS share..."
 
     # Add exports for storage and download directories
     EXPORTS_FILE="/etc/exports"
     STORAGE_DIR="$STORAGE_MOUNT"
     DOWNLOAD_DIR="$DOWNLOAD_MOUNT"
+
+    if ! grep -q "$STORAGE_DIR" "$EXPORTS_FILE"; then
+    echo "$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    fi
+
+    if ! grep -q "$DOWNLOAD_DIR" "$EXPORTS_FILE"; then
+    echo "$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    fi
+
 
     echo "Exporting directories for NFS..."
     sudo bash -c "cat >> $EXPORTS_FILE" <<EOF
@@ -408,6 +419,7 @@ deploy_docker_compose() {
     echo "Docker Compose stack deployed successfully."
 }
 
+
 # Main setup function
 main() {
     echo "Starting setup..."
@@ -420,6 +432,37 @@ main() {
     deploy_docker_compose
     #preconfigure_apps
     echo "Setup complete. Update the .env file with credentials if not already done."
+    echo "Setup Summary:"
+    echo "Docker services are running:"
+
+    # Define a list of apps and their ports
+    declare -A SERVICES_AND_PORTS=(
+        ["VPN"]="--"
+        ["Jackett"]="9117"
+        ["Sonarr"]="8989"
+        ["Radarr"]="7878"
+        ["Transmission"]="9091"
+        ["NZBGet"]="6789"
+        ["Watchtower"]="-- (auto-updater)"
+    )
+
+    # Loop through the services and display their ports
+    for SERVICE in "${!SERVICES_AND_PORTS[@]}"; do
+        echo "  - $SERVICE (Port: ${SERVICES_AND_PORTS[$SERVICE]})"
+    done
+
+    echo "File shares available:"
+    if [[ "$SHARE_METHOD" == "1" || -z "$SHARE_METHOD" ]]; then
+        echo "  Samba Shares:"
+        echo "    \\$SERVER_IP\\Movies"
+        echo "    \\$SERVER_IP\\TVShows"
+        echo "    \\$SERVER_IP\\Downloads"
+    elif [[ "$SHARE_METHOD" == "2" ]]; then
+        echo "  NFS Shares:"
+        echo "    $SERVER_IP:$STORAGE_DIR"
+        echo "    $SERVER_IP:$DOWNLOAD_DIR"
+fi
+
 }
 
 main
