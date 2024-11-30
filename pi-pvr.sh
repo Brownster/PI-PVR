@@ -72,17 +72,6 @@ setup_tailscale() {
     echo "Manage devices at https://login.tailscale.com."
 }
 
-# Set up Docker network for VPN containers
-setup_docker_network() {
-    echo "Creating Docker network for VPN..."
-    if docker network ls | grep -q "$CONTAINER_NETWORK"; then
-        echo "Docker network '$CONTAINER_NETWORK' already exists."
-    else
-        docker network create "$CONTAINER_NETWORK"
-        echo "Docker network '$CONTAINER_NETWORK' created."
-    fi
-}
-
 # Create .env file for sensitive data
 create_env_file() {
     echo "Creating .env file for sensitive data..."
@@ -337,55 +326,46 @@ EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
 }
 
-# Preconfigure application settings
-preconfigure_apps() {
-    echo "Preconfiguring application settings..."
+# install docker and anything else needed
+install_dependencies() {
+    echo "Uninstalling any conflicting Docker packages..."
+    for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
+        sudo apt-get remove -y \$pkg
+    done
 
-    # Jackett
-    if [[ -f "$DOCKER_DIR/jackett/ServerConfig.json" ]]; then
-        sudo sed -i 's|.*BasePath.*|  "BasePath": "/downloads",|' "$DOCKER_DIR/jackett/ServerConfig.json"
-        sudo sed -i "s|"Password": ".*"|"Password": "$JACKETT_PASSWORD"|" "$DOCKER_DIR/jackett/ServerConfig.json"
-        sudo sed -i "s|"Username": ".*"|"Username": "$JACKETT_USERNAME"|" "$DOCKER_DIR/jackett/ServerConfig.json"
-    fi
+    echo "Adding Docker's official GPG key and repository..."
+    sudo apt-get update
+    sudo apt-get install -y ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-    # Sonarr
-    if [[ -f "$DOCKER_DIR/sonarr/config.xml" ]]; then
-        sudo sed -i 's|<RootFolderPath>.*</RootFolderPath>|<RootFolderPath>/mnt/usbdrive/TVShows</RootFolderPath>|' "$DOCKER_DIR/sonarr/config.xml"
-        sudo sed -i 's|<DownloadClientPath>.*</DownloadClientPath>|<DownloadClientPath>/downloads</DownloadClientPath>|' "$DOCKER_DIR/sonarr/config.xml"
-        sudo sed -i "s|<Username>.*</Username>|<Username>$SONARR_USERNAME</Username>|" "$DOCKER_DIR/sonarr/config.xml"
-        sudo sed -i "s|<Password>.*</Password>|<Password>$SONARR_PASSWORD</Password>|" "$DOCKER_DIR/sonarr/config.xml"
-    fi
+    echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    \$(. /etc/os-release && echo "\$VERSION_CODENAME") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
 
-    # Radarr
-    if [[ -f "$DOCKER_DIR/radarr/config.xml" ]]; then
-        sudo sed -i 's|<RootFolderPath>.*</RootFolderPath>|<RootFolderPath>/mnt/usbdrive/Movies</RootFolderPath>|' "$DOCKER_DIR/radarr/config.xml"
-        sudo sed -i 's|<DownloadClientPath>.*</DownloadClientPath>|<DownloadClientPath>/downloads</DownloadClientPath>|' "$DOCKER_DIR/radarr/config.xml"
-        sudo sed -i "s|<Username>.*</Username>|<Username>$RADARR_USERNAME</Username>|" "$DOCKER_DIR/radarr/config.xml"
-        sudo sed -i "s|<Password>.*</Password>|<Password>$RADARR_PASSWORD</Password>|" "$DOCKER_DIR/radarr/config.xml"
-    fi
+    echo "Installing Docker Engine, Docker Compose, and related packages..."
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    # Transmission
-    if [[ -f "$DOCKER_DIR/transmission/settings.json" ]]; then
-        read -p "Enter Transmission RPC username (default: admin): " TRANSMISSION_RPC_USERNAME
-        TRANSMISSION_RPC_USERNAME=${TRANSMISSION_RPC_USERNAME:-admin}
-        read -s -p "Enter Transmission RPC password: " TRANSMISSION_RPC_PASSWORD
-        sudo sed -i 's|"download-dir": ".*"|"download-dir": "/downloads"|' "$DOCKER_DIR/transmission/settings.json"
-        sudo sed -i 's|"rpc-username": ".*"|"rpc-username": "$TRANSMISSION_RPC_USERNAME"|' "$DOCKER_DIR/transmission/settings.json"
-        sudo sed -i 's|"rpc-password": ".*"|"rpc-password": "$TRANSMISSION_RPC_PASSWORD"|' "$DOCKER_DIR/transmission/settings.json"
-    fi
+    echo "Verifying Docker installation..."
+    sudo docker run hello-world
 
-    # NZBGet
-    if [[ -f "$DOCKER_DIR/nzbget/nzbget.conf" ]]; then
-        sudo sed -i 's|MainDir=.*|MainDir=/downloads|' "$DOCKER_DIR/nzbget/nzbget.conf"
-        sudo sed -i 's|DestDir=.*|DestDir=/mnt/usbdrive/Movies|' "$DOCKER_DIR/nzbget/nzbget.conf"
-        sudo sed -i "s|ControlUsername=.*|ControlUsername=$NZBGET_USERNAME|" "$DOCKER_DIR/nzbget/nzbget.conf"
-        sudo sed -i "s|ControlPassword=.*|ControlPassword=$NZBGET_PASSWORD|" "$DOCKER_DIR/nzbget/nzbget.conf"
-    fi
-
-    # Restart affected containers to apply changes
-    echo "Restarting affected Docker containers to apply changes..."
-    docker-compose -f "$DOCKER_DIR/docker-compose.yml" restart $JACKETT_CONTAINER $SONARR_CONTAINER $RADARR_CONTAINER $TRANSMISSION_CONTAINER $NZBGET_CONTAINER
+    echo "Docker installed successfully."
 }
+
+
+# Set up Docker network for VPN containers
+setup_docker_network() {
+    echo "Creating Docker network for VPN..."
+    if docker network ls | grep -q "$CONTAINER_NETWORK"; then
+        echo "Docker network '$CONTAINER_NETWORK' already exists."
+    else
+        docker network create "$CONTAINER_NETWORK"
+        echo "Docker network '$CONTAINER_NETWORK' created."
+    fi
+}
+
 
 # Deploy Docker Compose stack
 deploy_docker_compose() {
@@ -406,6 +386,7 @@ main() {
     create_env_file
     create_docker_compose
     setup_usb_share
+    install_dependencies
     deploy_docker_compose
     preconfigure_apps
     echo "Setup complete. Update the .env file with credentials if not already done."
