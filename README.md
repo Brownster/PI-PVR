@@ -21,6 +21,12 @@ Requirements
     A VPN provider that supports WireGuard (e.g., PIA).
     Tailscale account for secure remote access.
 
+
+Create tailscale auth key
+![image](https://github.com/user-attachments/assets/e4d496f7-0368-4870-88b7-c6222378be4e)
+
+
+
 Installation
 
     Clone this repository:
