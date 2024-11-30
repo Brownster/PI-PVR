@@ -47,10 +47,10 @@ create_env_file() {
     echo "Creating .env file for sensitive data..."
     mkdir -p "$DOCKER_DIR"
     if [[ ! -f "$ENV_FILE" ]]; then
-        read -p "Enter your PIA_USERNAME: " PIA_USERNAME
-        read -s -p "Enter your PIA_PASSWORD: " PIA_PASSWORD
+        read -r -p "Enter your PIA_USERNAME: " PIA_USERNAME
+        read -r -s -p "Enter your PIA_PASSWORD: " PIA_PASSWORD
         echo ""
-        read -p "Enter your TAILSCALE_AUTH_KEY (or press Enter to skip): " TAILSCALE_AUTH_KEY
+        read -r -p "Enter your TAILSCALE_AUTH_KEY (or press Enter to skip): " TAILSCALE_AUTH_KEY
         
 
         cat > "$ENV_FILE" <<EOF
@@ -105,8 +105,8 @@ setup_pia_vpn() {
     sudo apt install -y curl jq wireguard-tools git
 
     # Prompt user for PIA credentials
-    read -p "Enter your PIA username: " PIA_USERNAME
-    read -s -p "Enter your PIA password: " PIA_PASSWORD
+    read -r -p "Enter your PIA username: " PIA_USERNAME
+    read -r -s -p "Enter your PIA password: " PIA_PASSWORD
     echo ""
 
     # Run the setup script with environment variables
@@ -136,7 +136,7 @@ choose_sharing_method() {
     echo "Choose your preferred file sharing method:"
     echo "1. Samba (Best for cross-platform: Windows, macOS, Linux)"
     echo "2. NFS (Best for Linux-only environments)"
-    read -p "Enter the number (1 or 2): " SHARE_METHOD
+    read -r -p "Enter the number (1 or 2): " SHARE_METHOD
 
     if [[ "$SHARE_METHOD" == "1" ]]; then
         setup_usb_and_samba
@@ -165,7 +165,7 @@ setup_usb_and_samba() {
 
     echo "Available USB drives:"
     echo "$USB_DRIVES" | nl
-    read -p "Select the drive number for storage: " STORAGE_SELECTION
+    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
     
     read -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
@@ -174,7 +174,7 @@ setup_usb_and_samba() {
     else
         echo "Available USB drives:"
         echo "$USB_DRIVES" | nl
-        read -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
+        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
         DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
     fi
 
@@ -208,7 +208,7 @@ setup_usb_and_samba() {
     if [[ -d "$TVSHOWS_DIR" ]]; then
         echo "TVShows directory already exists at $TVSHOWS_DIR. Skipping creation."
     else
-        read -p "TVShows directory not found. Do you want to create it? (y/n): " CREATE_TVSHOWS
+        read -r -p "TVShows directory not found. Do you want to create it? (y/n): " CREATE_TVSHOWS
         if [[ "$CREATE_TVSHOWS" =~ ^[Yy]$ ]]; then
             echo "Creating TVShows directory..."
             sudo mkdir -p "$TVSHOWS_DIR"
