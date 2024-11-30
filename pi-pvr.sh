@@ -40,26 +40,6 @@ TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows
 # Exit on error
 set -e
 
-# Install required dependencies
-# Install and configure Tailscale
-setup_tailscale() {
-    echo "Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
-    echo "Tailscale installed."
-
-    echo "Starting Tailscale and authenticating..."
-    if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
-        echo "TAILSCALE_AUTH_KEY is not set. Tailscale will require manual authentication."
-        sudo tailscale up
-    else
-        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY"
-    fi
-
-    echo "Tailscale is running."
-    echo "Access your server using its Tailscale IP: $(tailscale ip -4)"
-    echo "Manage devices at https://login.tailscale.com."
-}
-
 # Create .env file for sensitive data
 create_env_file() {
     echo "Creating .env file for sensitive data..."
@@ -101,6 +81,27 @@ EOF
         echo ".env file already exists. Update credentials if necessary."
     fi
 }
+
+
+# Install and configure Tailscale
+setup_tailscale() {
+    echo "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+    echo "Tailscale installed."
+
+    echo "Starting Tailscale and authenticating..."
+    if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
+        echo "TAILSCALE_AUTH_KEY is not set. Tailscale will require manual authentication."
+        sudo tailscale up
+    else
+        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY"
+    fi
+
+    echo "Tailscale is running."
+    echo "Access your server using its Tailscale IP: $(tailscale ip -4)"
+    echo "Manage devices at https://login.tailscale.com."
+}
+
 
 # Configure USB drive and Samba share
 setup_usb_and_samba() {
