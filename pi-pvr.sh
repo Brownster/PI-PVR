@@ -142,9 +142,11 @@ choose_sharing_method() {
         setup_usb_and_nfs
     else
         echo "Invalid selection. Defaulting to Samba."
+        SHARE_METHOD="1"
         setup_usb_and_samba
     fi
 }
+
 
 
 # Configure USB drive and Samba share
@@ -265,41 +267,37 @@ EOF
 
 
 setup_usb_and_nfs() {
-    echo "installing necessary NHF packages"
+    echo "Installing necessary NFS packages..."
     sudo apt-get install -y nfs-kernel-server
-    echo "Setting up NFS share..."
 
-    # Add exports for storage and download directories
+    echo "Setting up NFS share..."
     EXPORTS_FILE="/etc/exports"
     STORAGE_DIR="$STORAGE_MOUNT"
     DOWNLOAD_DIR="$DOWNLOAD_MOUNT"
 
+    # Add storage directory if not already in exports
     if ! grep -q "$STORAGE_DIR" "$EXPORTS_FILE"; then
-    echo "$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+        echo "$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
     fi
 
+    # Add download directory if not already in exports
     if ! grep -q "$DOWNLOAD_DIR" "$EXPORTS_FILE"; then
-    echo "$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+        echo "$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
     fi
-
 
     echo "Exporting directories for NFS..."
-    sudo bash -c "cat >> $EXPORTS_FILE" <<EOF
-$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)
-$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)
-EOF
+    sudo exportfs -ra
 
-    # Restart NFS server to apply changes
     echo "Restarting NFS server..."
     sudo systemctl restart nfs-kernel-server
 
-    # Show configuration details
     SERVER_IP=$(hostname -I | awk '{print $1}')
     echo "Configuration complete."
     echo "NFS Shares available at:"
     echo "  $SERVER_IP:$STORAGE_DIR"
     echo "  $SERVER_IP:$DOWNLOAD_DIR"
 }
+
 
 
 # Create Docker Compose file
@@ -484,7 +482,7 @@ main() {
         ["Radarr"]="7878"
         ["Transmission"]="9091"
         ["NZBGet"]="6789"
-        ["Watchtower"]="-- (auto-updater)"
+        ["Watchtower"]="Auto-Updater"
     )
 
     # Loop through the services and display their ports
@@ -502,7 +500,7 @@ main() {
         echo "  NFS Shares:"
         echo "    $SERVER_IP:$STORAGE_DIR"
         echo "    $SERVER_IP:$DOWNLOAD_DIR"
-fi
+    fi
 
 }
 
