@@ -16,9 +16,10 @@ Features
 
 Requirements
 
-    Raspberry Pi running a Linux-based OS.
+    Raspberry Pi running a Linux-based OS, I am using RP5 8GB.
     Docker and Docker Compose installed.
-    A VPN provider that supports WireGuard (e.g., PIA).
+    Private Internet Access as VPN Provider.
+    #AirVPN, FastestVPN, Ivpn, Mullvad, NordVPN, Perfect privacy, ProtonVPN, Surfshark and Windscribe will follow.
     Tailscale account for secure remote access.
 
 
