@@ -30,9 +30,7 @@ NZBGET_IMAGE="linuxserver/nzbget"
 WATCHTOWER_CONTAINER="watchtower"
 WATCHTOWER_IMAGE="containrrr/watchtower"
 
-# USB and Samba Variables
-USB_DEVICE="/dev/sda1"           # Update this to match your USB device (use lsblk to verify)
-MOUNT_POINT="/mnt/usbdrive"      # Where the drive will be mounted
+# Samba Variable
 SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
 
 # Media folder names
