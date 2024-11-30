@@ -382,11 +382,11 @@ deploy_docker_compose() {
 main() {
     echo "Starting setup..."
     setup_tailscale
-    setup_docker_network
     create_env_file
     create_docker_compose
     setup_usb_share
     install_dependencies
+    setup_docker_network
     deploy_docker_compose
     preconfigure_apps
     echo "Setup complete. Update the .env file with credentials if not already done."
