@@ -102,6 +102,23 @@ setup_tailscale() {
     echo "Manage devices at https://login.tailscale.com."
 }
 
+#choose smb or nfs (smb if using windows devices to connect)
+choose_sharing_method() {
+    echo "Choose your preferred file sharing method:"
+    echo "1. Samba (Best for cross-platform: Windows, macOS, Linux)"
+    echo "2. NFS (Best for Linux-only environments)"
+    read -p "Enter the number (1 or 2): " SHARE_METHOD
+
+    if [[ "$SHARE_METHOD" == "1" ]]; then
+        setup_usb_and_samba
+    elif [[ "$SHARE_METHOD" == "2" ]]; then
+        setup_usb_and_nfs
+    else
+        echo "Invalid selection. Defaulting to Samba."
+        setup_usb_and_samba
+    fi
+}
+
 
 # Configure USB drive and Samba share
 setup_usb_and_samba() {
@@ -216,6 +233,35 @@ EOF
     echo "  \\<Your Server IP>\\TVShows"
     echo "  \\<Your Server IP>\\Downloads"
 }
+
+
+setup_usb_and_nfs() {
+    echo "Setting up NFS share..."
+
+    # Add exports for storage and download directories
+    EXPORTS_FILE="/etc/exports"
+    STORAGE_DIR="$STORAGE_MOUNT"
+    DOWNLOAD_DIR="$DOWNLOAD_MOUNT"
+
+    echo "Exporting directories for NFS..."
+    sudo bash -c "cat >> $EXPORTS_FILE" <<EOF
+$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)
+$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)
+EOF
+
+    # Restart NFS server to apply changes
+    echo "Restarting NFS server..."
+    sudo systemctl restart nfs-kernel-server
+
+    # Show configuration details
+    SERVER_IP=$(hostname -I | awk '{print $1}')
+    echo "Configuration complete."
+    echo "NFS Shares available at:"
+    echo "  $SERVER_IP:$STORAGE_DIR"
+    echo "  $SERVER_IP:$DOWNLOAD_DIR"
+}
+
+
 
 # Create Docker Compose file
 create_docker_compose() {
@@ -385,7 +431,7 @@ main() {
     create_env_file
     setup_tailscale
     create_docker_compose
-    setup_usb_and_samba
+    choose_sharing_method
     install_dependencies
     setup_docker_network
     deploy_docker_compose
