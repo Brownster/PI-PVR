@@ -49,31 +49,12 @@ create_env_file() {
         read -s -p "Enter your PIA_PASSWORD: " PIA_PASSWORD
         echo ""
         read -p "Enter your TAILSCALE_AUTH_KEY (or press Enter to skip): " TAILSCALE_AUTH_KEY
-        read -p "Enter your Jackett username: " JACKETT_USERNAME
-        read -s -p "Enter your Jackett password: " JACKETT_PASSWORD
-        echo ""
-        read -p "Enter your Sonarr username: " SONARR_USERNAME
-        read -s -p "Enter your Sonarr password: " SONARR_PASSWORD
-        echo ""
-        read -p "Enter your Radarr username: " RADARR_USERNAME
-        read -s -p "Enter your Radarr password: " RADARR_PASSWORD
-        echo ""
-        read -p "Enter your NZBGet username: " NZBGET_USERNAME
-        read -s -p "Enter your NZBGet password: " NZBGET_PASSWORD
-        echo ""
+        
 
         cat > "$ENV_FILE" <<EOF
 PIA_USERNAME=$PIA_USERNAME
 PIA_PASSWORD=$PIA_PASSWORD
 TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
-JACKETT_USERNAME=$JACKETT_USERNAME
-JACKETT_PASSWORD=$JACKETT_PASSWORD
-SONARR_USERNAME=$SONARR_USERNAME
-SONARR_PASSWORD=$SONARR_PASSWORD
-RADARR_USERNAME=$RADARR_USERNAME
-RADARR_PASSWORD=$RADARR_PASSWORD
-NZBGET_USERNAME=$NZBGET_USERNAME
-NZBGET_PASSWORD=$NZBGET_PASSWORD
 EOF
         echo ".env file created at $ENV_FILE."
         chmod 600 "$ENV_FILE"
@@ -225,13 +206,15 @@ EOF
         echo "Samba shares already exist. Skipping."
     fi
 
+# Get the server's IP address dynamically and print samba shares.
+    SERVER_IP=$(hostname -I | awk '{print $1}')
     echo "Configuration complete."
     echo "Storage Drive Mounted: $STORAGE_MOUNT"
     echo "Download Drive Mounted: $DOWNLOAD_MOUNT"
     echo "Samba Shares:"
-    echo "  \\<Your Server IP>\\Movies"
-    echo "  \\<Your Server IP>\\TVShows"
-    echo "  \\<Your Server IP>\\Downloads"
+    echo "  \\$SERVER_IP\\Movies"
+    echo "  \\$SERVER_IP\\TVShows"
+    echo "  \\$SERVER_IP\\Downloads"
 }
 
 
