@@ -384,7 +384,7 @@ main() {
     setup_tailscale
     create_env_file
     create_docker_compose
-    setup_usb_share
+    setup_usb_and_samba
     install_dependencies
     setup_docker_network
     deploy_docker_compose
