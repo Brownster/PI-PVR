@@ -102,11 +102,6 @@ setup_pia_vpn() {
     sudo apt update
     sudo apt install -y curl jq wireguard-tools git
 
-    # Prompt user for PIA credentials
-    read -r -p "Enter your PIA username: " PIA_USERNAME
-    read -r -s -p "Enter your PIA password: " PIA_PASSWORD
-    echo ""
-
     # Run the setup script with environment variables
     echo "Running PIA setup script..."
     sudo VPN_PROTOCOL=wireguard \
@@ -423,33 +418,39 @@ networks:
 EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
 }
-
-# install docker and anything else needed
+    # Install required dependencies, including git
+    echo "Installing dependencies..."
+    sudo apt update
+    sudo apt install -y curl jq wireguard-tools git
+# Install required dependencies
 install_dependencies() {
     echo "Uninstalling any conflicting Docker packages..."
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
-        sudo apt-get remove -y \$pkg
+        sudo apt-get remove -y "$pkg"
     done
 
-    echo "Adding Docker's official GPG key and repository..."
+    echo "Adding Docker's official GPG key and repository for Docker..."
     sudo apt-get update
     sudo apt-get install -y ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
     sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
     sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-    echo "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    \$(. /etc/os-release && echo "\$VERSION_CODENAME") stable" | \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt-get update
 
     echo "Installing Docker Engine, Docker Compose, and related packages..."
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
+    echo "Installing other required dependencies: curl, jq, wireguard-tools, git..."
+    sudo apt-get install -y curl jq wireguard-tools git
+
     echo "Verifying Docker installation..."
     sudo docker run hello-world
 
-    echo "Docker installed successfully."
+    echo "All dependencies installed successfully."
 }
 
 
@@ -560,10 +561,10 @@ main() {
     echo "Starting setup..."
     create_env_file
     setup_tailscale
+    install_dependencies
     setup_pia_vpn
     create_docker_compose
     choose_sharing_method
-    install_dependencies
     setup_docker_network
     deploy_docker_compose
     setup_mount_and_docker_start
