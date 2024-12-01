@@ -158,8 +158,10 @@ choose_sharing_method() {
 # Configure USB drive and Samba share
 setup_usb_and_samba() {
     echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE | grep -E 'disk' | awk '{print "/dev/"$1, $2, $5}')
-    
+
+    # List available partitions, assuming they are NTFS formatted
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE | awk '/part/ {print "/dev/"$1, $2}' | sed 's/[└├─]//g')
+
     if [[ -z "$USB_DRIVES" ]]; then
         echo "No USB drives detected. Please ensure they are connected and retry."
         exit 1
@@ -169,48 +171,36 @@ setup_usb_and_samba() {
     echo "$USB_DRIVES" | nl
     read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
 
     read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
     if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
         DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
     else
         echo "Available USB drives:"
         echo "$USB_DRIVES" | nl
         read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
         DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
     fi
 
-    # Validate the file system type
-    for DRIVE in "$STORAGE_DRIVE" "$DOWNLOAD_DRIVE"; do
-        FS=$(echo "$USB_DRIVES" | grep "$DRIVE" | awk '{print $3}')
-        if [[ -z "$FS" ]]; then
-            echo "Error: Unable to determine file system type for $DRIVE."
-            echo "Please ensure the drive is formatted and try again."
-            exit 1
-        fi
-    done
-
-    # Mount drives
+    # Mount drives (assuming NTFS filesystem)
     STORAGE_MOUNT="/mnt/storage"
     DOWNLOAD_MOUNT="/mnt/downloads"
 
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
-    sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    sudo apt install -y ntfs-3g
+    sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the file system type and try again."
+        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the drive and try again."
         exit 1
     fi
 
     if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
         echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
         sudo mkdir -p "$DOWNLOAD_MOUNT"
-        sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
         if [[ $? -ne 0 ]]; then
-            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the file system type and try again."
+            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
             exit 1
         fi
     fi
@@ -248,17 +238,24 @@ setup_usb_and_samba() {
     sudo chmod -R 775 "$STORAGE_MOUNT"
     sudo chown -R $USER:$USER "$STORAGE_MOUNT"
 
+    # Install Samba if not already installed
+    if ! command -v smbd &> /dev/null; then
+        echo "Samba is not installed. Installing Samba..."
+        sudo apt-get install -y samba samba-common-bin
+    fi
+
     # Configure Samba
     echo "Configuring Samba..."
     SAMBA_CONFIG="/etc/samba/smb.conf"
-    if [[ ! -f "$SAMBA_CONFIG.bak" ]]; then
-        echo "Backing up existing Samba configuration..."
-        sudo cp "$SAMBA_CONFIG" "$SAMBA_CONFIG.bak"
-    fi
+    if [[ -f "$SAMBA_CONFIG" ]]; then
+        if [[ ! -f "$SAMBA_CONFIG.bak" ]]; then
+            echo "Backing up existing Samba configuration..."
+            sudo cp "$SAMBA_CONFIG" "$SAMBA_CONFIG.bak"
+        fi
 
-    if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
-        echo "Adding Samba share for Movies and TVShows..."
-        sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
+        if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
+            echo "Adding Samba share for Movies and TVShows..."
+            sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
 
 [Movies]
    path = $MOVIES_DIR
@@ -278,28 +275,31 @@ setup_usb_and_samba() {
    read only = no
    guest ok = yes
 EOF
-        sudo systemctl restart smbd
-        echo "Samba shares configured and service restarted."
+            sudo systemctl restart smbd
+            echo "Samba shares configured and service restarted."
+        else
+            echo "Samba shares already exist. Skipping."
+        fi
     else
-        echo "Samba shares already exist. Skipping."
+        echo "Error: Samba configuration file not found at $SAMBA_CONFIG. Please ensure Samba is properly installed."
+        exit 1
     fi
 
     echo "Configuration complete."
     echo "Storage Drive Mounted: $STORAGE_MOUNT"
     echo "Download Drive Mounted: $DOWNLOAD_MOUNT"
     echo "Samba Shares:"
-    printf '  \\\\%s\\\\Movies\n' "$SERVER_IP"
-    printf '  \\\\%s\\\\TVShows\n' "$SERVER_IP"
-    printf '  \\\\%s\\\\Downloads\n' "$SERVER_IP"
+    printf '  \\%s\\Movies\n' "$SERVER_IP"
+    printf '  \\%s\\TVShows\n' "$SERVER_IP"
+    printf '  \\%s\\Downloads\n' "$SERVER_IP"
 }
-
 
 setup_usb_and_nfs() {
     echo "Installing necessary NFS packages..."
     sudo apt-get install -y nfs-kernel-server
 
     echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE | grep -E 'disk' | awk '{print "/dev/"$1, $2, $5}')
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE | awk '/part/ {print "/dev/"$1, $2}' | sed 's/[└├─]//g')
     
     if [[ -z "$USB_DRIVES" ]]; then
         echo "No USB drives detected. Please ensure they are connected and retry."
@@ -310,48 +310,36 @@ setup_usb_and_nfs() {
     echo "$USB_DRIVES" | nl
     read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
 
     read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
     if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
         DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
     else
         echo "Available USB drives:"
         echo "$USB_DRIVES" | nl
         read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
         DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
     fi
 
-    # Validate the file system type
-    for DRIVE in "$STORAGE_DRIVE" "$DOWNLOAD_DRIVE"; do
-        FS=$(echo "$USB_DRIVES" | grep "$DRIVE" | awk '{print $3}')
-        if [[ -z "$FS" ]]; then
-            echo "Error: Unable to determine file system type for $DRIVE."
-            echo "Please ensure the drive is formatted and try again."
-            exit 1
-        fi
-    done
-
-    # Mount drives
+    # Mount drives (assuming NTFS filesystem)
     STORAGE_MOUNT="/mnt/storage"
     DOWNLOAD_MOUNT="/mnt/downloads"
 
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
-    sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    sudo apt install -y ntfs-3g
+    sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the file system type and try again."
+        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the drive and try again."
         exit 1
     fi
 
     if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
         echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
         sudo mkdir -p "$DOWNLOAD_MOUNT"
-        sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
         if [[ $? -ne 0 ]]; then
-            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the file system type and try again."
+            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
             exit 1
         fi
     fi
@@ -408,24 +396,21 @@ setup_usb_and_nfs() {
 }
 
 
-
 # Create Docker Compose file
 create_docker_compose() {
     echo "Creating Docker Compose file..."
-    STORAGE_MOUNT="/mnt/storage"
-    DOWNLOAD_MOUNT="/mnt/downloads"
     cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
-  gluetun:
-    image: $VPN_IMAGE
-    container_name: $VPN_CONTAINER
+  vpn:
+    image: qmcgaw/gluetun:latest
+    container_name: vpn
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ./manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro # Mount the WireGuard config file
+      - ./manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro
     environment:
       - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=wireguard
@@ -441,84 +426,88 @@ services:
       - 7878:7878   # Radarr
       - 9091:9091   # Transmission
       - 6789:6789   # NZBGet
+    networks:
+      - vpn_network
 
-  $JACKETT_CONTAINER:
-    image: $JACKETT_IMAGE
-    container_name: $JACKETT_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+  jackett:
+    image: linuxserver/jackett:latest
+    container_name: jackett
+    network_mode: "service:vpn"
     environment:
-      - TZ=$TIMEZONE
+      - TZ=Europe/Berlin
     volumes:
-      - $DOCKER_DIR/jackett:/config
-      - $DOWNLOAD_MOUNT:/downloads
+      - /home/holly/docker/jackett:/config
+      - /mnt/downloads:/downloads
     restart: unless-stopped
 
-  $SONARR_CONTAINER:
-    image: $SONARR_IMAGE
-    container_name: $SONARR_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:vpn"
     environment:
-      - TZ=$TIMEZONE
+      - TZ=Europe/Berlin
     volumes:
-      - $DOCKER_DIR/sonarr:/config
-      - $STORAGE_MOUNT/$TVSHOWS_FOLDER:/tv
-      - $DOWNLOAD_MOUNT:/downloads
+      - /home/holly/docker/sonarr:/config
+      - /mnt/storage/TVShows:/tv
+      - /mnt/downloads:/downloads
     restart: unless-stopped
 
-  $RADARR_CONTAINER:
-    image: $RADARR_IMAGE
-    container_name: $RADARR_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:vpn"
     environment:
-      - TZ=$TIMEZONE
+      - TZ=Europe/Berlin
     volumes:
-      - $DOCKER_DIR/radarr:/config
-      - $STORAGE_MOUNT/$MOVIES_FOLDER:/movies
-      - $DOWNLOAD_MOUNT:/downloads
+      - /home/holly/docker/radarr:/config
+      - /mnt/storage/Movies:/movies
+      - /mnt/downloads:/downloads
     restart: unless-stopped
 
-  $TRANSMISSION_CONTAINER:
-    image: $TRANSMISSION_IMAGE
-    container_name: $TRANSMISSION_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+  transmission:
+    image: linuxserver/transmission:latest
+    container_name: transmission
+    network_mode: "service:vpn"
     environment:
-      - TZ=$TIMEZONE
+      - TZ=Europe/Berlin
     volumes:
-      - $DOCKER_DIR/transmission:/config
-      - $DOWNLOAD_MOUNT:/downloads
+      - /home/holly/docker/transmission:/config
+      - /mnt/downloads:/downloads
     restart: unless-stopped
 
-  $NZBGET_CONTAINER:
-    image: $NZBGET_IMAGE
-    container_name: $NZBGET_CONTAINER
-    network_mode: "service:$VPN_CONTAINER"
+  nzbget:
+    image: linuxserver/nzbget:latest
+    container_name: nzbget
+    network_mode: "service:vpn"
     environment:
-      - TZ=$TIMEZONE
+      - TZ=Europe/Berlin
       - PUID=1000
       - PGID=1000
     volumes:
-      - $DOCKER_DIR/nzbget:/config
-      - $DOWNLOAD_MOUNT/incomplete:/incomplete
-      - $DOWNLOAD_MOUNT/complete:/complete
+      - /home/holly/docker/nzbget:/config
+      - /mnt/downloads/incomplete:/incomplete
+      - /mnt/downloads/complete:/complete
     restart: unless-stopped
 
-  $WATCHTOWER_CONTAINER:
-    image: $WATCHTOWER_IMAGE
-    container_name: $WATCHTOWER_CONTAINER
-    network_mode: "bridge"
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE="0 3 * * *" # Run daily at 3 AM
     restart: unless-stopped
+    networks:
+      - vpn_network
 
 networks:
-  $CONTAINER_NETWORK:
+  vpn_network:
     driver: bridge
 EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
 }
+
 
     # Install required dependencies, including git
     echo "Installing dependencies..."
@@ -559,10 +548,15 @@ install_dependencies() {
 # Set up Docker network for VPN containers
 setup_docker_network() {
     echo "Creating Docker network for VPN..."
-    if docker network ls | grep -q "$CONTAINER_NETWORK"; then
+    if ! systemctl is-active --quiet docker; then
+        echo "Docker is not running. Starting Docker..."
+        sudo systemctl start docker
+    fi
+
+    if sudo docker network ls | grep -q "$CONTAINER_NETWORK"; then
         echo "Docker network '$CONTAINER_NETWORK' already exists."
     else
-        docker network create "$CONTAINER_NETWORK"
+        sudo docker network create "$CONTAINER_NETWORK"
         echo "Docker network '$CONTAINER_NETWORK' created."
     fi
 }
@@ -571,13 +565,14 @@ setup_docker_network() {
 # Deploy Docker Compose stack
 deploy_docker_compose() {
     echo "Deploying Docker Compose stack..."
-    if ! docker-compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
+    sudo usermod -aG docker "$USER"
+    newgrp docker
+    if ! docker compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
         echo "Error: Failed to deploy Docker Compose stack."
         exit 1
     fi
     echo "Docker Compose stack deployed successfully."
 }
-
 
 setup_mount_and_docker_start() {
     echo "Configuring drives to mount at boot and Docker to start afterwards..."
@@ -587,8 +582,8 @@ setup_mount_and_docker_start() {
     DOWNLOAD_MOUNT="/mnt/downloads"
 
     # Get device UUIDs for fstab
-    STORAGE_UUID=$(blkid -s UUID -o value $(findmnt -nT "$STORAGE_MOUNT" | awk '{print $2}'))
-    DOWNLOAD_UUID=$(blkid -s UUID -o value $(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}'))
+    STORAGE_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$STORAGE_MOUNT" | awk '{print $2}')")
+    DOWNLOAD_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}')")
 
     if [[ -z "$STORAGE_UUID" || -z "$DOWNLOAD_UUID" ]]; then
         echo "Error: Could not determine UUIDs for storage or download drives."
@@ -623,6 +618,7 @@ After=local-fs.target docker.service
 Type=oneshot
 ExecStart=/usr/local/bin/check_mount_and_start.sh
 RemainAfterExit=yes
+Environment=HOME=$HOME
 
 [Install]
 WantedBy=multi-user.target
@@ -643,7 +639,7 @@ until mountpoint -q "$STORAGE_MOUNT" && mountpoint -q "$DOWNLOAD_MOUNT"; do
 done
 
 echo "Drives are mounted. Starting Docker containers..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" up -d
+docker compose -f "$DOCKER_COMPOSE_FILE" up -d
 EOF
 
     # Make the script executable
@@ -657,20 +653,18 @@ EOF
 }
 
 
-
 # Main setup function
 main() {
     echo "Starting setup..."
     create_env_file
     #setup_tailscale
     install_dependencies
-    setup_pia_vpn
-    create_docker_compose
-    choose_sharing_method
-    setup_docker_network
+    #setup_pia_vpn
+    #create_docker_compose
+    #choose_sharing_method
+    #setup_docker_network
     deploy_docker_compose
     setup_mount_and_docker_start
-    #preconfigure_apps
     echo "Setup complete. Update the .env file with credentials if not already done."
     echo "Setup Summary:"
     echo "Docker services are running:"
@@ -684,7 +678,6 @@ main() {
         ["Transmission"]="9091"
         ["NZBGet"]="6789"
         ["Watchtower"]="Auto-Updater"
-        ["Portainer"]="9000"
     )
 
     # Loop through the services and display their ports
