@@ -93,11 +93,7 @@ How It Works
 
 Customizing the Stack
 
-You can customize the container names and images in the setup.sh script. For example:
-
-# Jackett
-JACKETT_CONTAINER="jackett"
-JACKETT_IMAGE="linuxserver/jackett"
+You can customize the container names and images in the setup.sh script.
 
 To use a different image, update the *_IMAGE variables and re-run the setup.
 Testing
