@@ -143,13 +143,19 @@ This project is licensed under the MIT License.
 Contributing
 
 Feel free to submit issues or pull requests to improve this stack. Contributions are welcome!
-Acknowledgments
+Acknowledgments to the below communities:
 
     Docker
     LinuxServer.io
     Gluetun
     Tailscale
     Watchtower
+    Radarr
+    Sonarr
+    Portainer
+    Wireguard
+    Transmission
+    NZBget
 
 References
 
