@@ -158,7 +158,7 @@ choose_sharing_method() {
 # Configure USB drive and Samba share
 setup_usb_and_samba() {
     echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | grep -E 'disk' | awk '{print "/dev/"$1, $2}')
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE | grep -E 'disk' | awk '{print "/dev/"$1, $2, $5}')
     
     if [[ -z "$USB_DRIVES" ]]; then
         echo "No USB drives detected. Please ensure they are connected and retry."
@@ -169,16 +169,29 @@ setup_usb_and_samba() {
     echo "$USB_DRIVES" | nl
     read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    
+    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
+
     read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
     if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
         DOWNLOAD_DRIVE=$STORAGE_DRIVE
+        DOWNLOAD_FS=$STORAGE_FS
     else
         echo "Available USB drives:"
         echo "$USB_DRIVES" | nl
         read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
         DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
+        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
     fi
+
+    # Validate the file system type
+    for DRIVE in "$STORAGE_DRIVE" "$DOWNLOAD_DRIVE"; do
+        FS=$(echo "$USB_DRIVES" | grep "$DRIVE" | awk '{print $3}')
+        if [[ -z "$FS" ]]; then
+            echo "Error: Unable to determine file system type for $DRIVE."
+            echo "Please ensure the drive is formatted and try again."
+            exit 1
+        fi
+    done
 
     # Mount drives
     STORAGE_MOUNT="/mnt/storage"
@@ -187,13 +200,24 @@ setup_usb_and_samba() {
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
     sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
-    echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
-    sudo mkdir -p "$DOWNLOAD_MOUNT"
-    sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the file system type and try again."
+        exit 1
+    fi
+
+    if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
+        echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
+        sudo mkdir -p "$DOWNLOAD_MOUNT"
+        sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        if [[ $? -ne 0 ]]; then
+            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the file system type and try again."
+            exit 1
+        fi
+    fi
 
     # Detect and create media directories
-    MOVIES_DIR="$STORAGE_MOUNT/$MOVIES_FOLDER"
-    TVSHOWS_DIR="$STORAGE_MOUNT/$TVSHOWS_FOLDER"
+    MOVIES_DIR="$STORAGE_MOUNT/Movies"
+    TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
 
     if [[ -d "$MOVIES_DIR" ]]; then
         echo "Movies directory already exists at $MOVIES_DIR. Skipping creation."
@@ -260,16 +284,13 @@ EOF
         echo "Samba shares already exist. Skipping."
     fi
 
-# Get the server's IP address dynamically and print samba shares.
-    SERVER_IP=$(hostname -I | awk '{print $1}')
     echo "Configuration complete."
     echo "Storage Drive Mounted: $STORAGE_MOUNT"
     echo "Download Drive Mounted: $DOWNLOAD_MOUNT"
     echo "Samba Shares:"
-    printf '  \\\\%s\\Movies\n' "$SERVER_IP"
-    printf '  \\\\%s\\TVShows\n' "$SERVER_IP"
-    printf '  \\\\%s\\Downloads\n' "$SERVER_IP"
-
+    printf '  \\\\%s\\\\Movies\n' "$SERVER_IP"
+    printf '  \\\\%s\\\\TVShows\n' "$SERVER_IP"
+    printf '  \\\\%s\\\\Downloads\n' "$SERVER_IP"
 }
 
 
@@ -277,19 +298,100 @@ setup_usb_and_nfs() {
     echo "Installing necessary NFS packages..."
     sudo apt-get install -y nfs-kernel-server
 
-    echo "Setting up NFS share..."
-    EXPORTS_FILE="/etc/exports"
-    STORAGE_DIR="$STORAGE_MOUNT"
-    DOWNLOAD_DIR="$DOWNLOAD_MOUNT"
+    echo "Detecting USB drives..."
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE | grep -E 'disk' | awk '{print "/dev/"$1, $2, $5}')
+    
+    if [[ -z "$USB_DRIVES" ]]; then
+        echo "No USB drives detected. Please ensure they are connected and retry."
+        exit 1
+    fi
 
+    echo "Available USB drives:"
+    echo "$USB_DRIVES" | nl
+    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
+    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
+    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
+
+    read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
+    if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
+        DOWNLOAD_DRIVE=$STORAGE_DRIVE
+        DOWNLOAD_FS=$STORAGE_FS
+    else
+        echo "Available USB drives:"
+        echo "$USB_DRIVES" | nl
+        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
+        DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
+        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
+    fi
+
+    # Validate the file system type
+    for DRIVE in "$STORAGE_DRIVE" "$DOWNLOAD_DRIVE"; do
+        FS=$(echo "$USB_DRIVES" | grep "$DRIVE" | awk '{print $3}')
+        if [[ -z "$FS" ]]; then
+            echo "Error: Unable to determine file system type for $DRIVE."
+            echo "Please ensure the drive is formatted and try again."
+            exit 1
+        fi
+    done
+
+    # Mount drives
+    STORAGE_MOUNT="/mnt/storage"
+    DOWNLOAD_MOUNT="/mnt/downloads"
+
+    echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
+    sudo mkdir -p "$STORAGE_MOUNT"
+    sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the file system type and try again."
+        exit 1
+    fi
+
+    if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
+        echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
+        sudo mkdir -p "$DOWNLOAD_MOUNT"
+        sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        if [[ $? -ne 0 ]]; then
+            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the file system type and try again."
+            exit 1
+        fi
+    fi
+
+    # Detect and create media directories
+    MOVIES_DIR="$STORAGE_MOUNT/Movies"
+    TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
+
+    if [[ ! -d "$MOVIES_DIR" ]]; then
+        read -r -p "Movies directory not found. Do you want to create it? (y/n): " CREATE_MOVIES
+        if [[ "$CREATE_MOVIES" =~ ^[Yy]$ ]]; then
+            echo "Creating Movies directory..."
+            sudo mkdir -p "$MOVIES_DIR"
+        else
+            echo "Skipping Movies directory creation."
+        fi
+    fi
+
+    if [[ ! -d "$TVSHOWS_DIR" ]]; then
+        read -r -p "TVShows directory not found. Do you want to create it? (y/n): " CREATE_TVSHOWS
+        if [[ "$CREATE_TVSHOWS" =~ ^[Yy]$ ]]; then
+            echo "Creating TVShows directory..."
+            sudo mkdir -p "$TVSHOWS_DIR"
+        else
+            echo "Skipping TVShows directory creation."
+        fi
+    fi
+
+    # Update /etc/exports for NFS
+    EXPORTS_FILE="/etc/exports"
+    echo "Setting up NFS share..."
+    
     # Add storage directory if not already in exports
-    if ! grep -q "$STORAGE_DIR" "$EXPORTS_FILE"; then
-        echo "$STORAGE_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    if ! grep -q "$STORAGE_MOUNT" "$EXPORTS_FILE"; then
+        echo "$STORAGE_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
     fi
 
     # Add download directory if not already in exports
-    if ! grep -q "$DOWNLOAD_DIR" "$EXPORTS_FILE"; then
-        echo "$DOWNLOAD_DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    if ! grep -q "$DOWNLOAD_MOUNT" "$EXPORTS_FILE"; then
+        echo "$DOWNLOAD_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
     fi
 
     echo "Exporting directories for NFS..."
@@ -301,8 +403,8 @@ setup_usb_and_nfs() {
     SERVER_IP=$(hostname -I | awk '{print $1}')
     echo "Configuration complete."
     echo "NFS Shares available at:"
-    echo "  $SERVER_IP:$STORAGE_DIR"
-    echo "  $SERVER_IP:$DOWNLOAD_DIR"
+    echo "  $SERVER_IP:$STORAGE_MOUNT"
+    echo "  $SERVER_IP:$DOWNLOAD_MOUNT"
 }
 
 
