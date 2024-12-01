@@ -154,3 +154,12 @@ Acknowledgments
     Gluetun
     Tailscale
     Watchtower
+
+References
+
+    [PIA WireGuard](https://github.com/pia-foss/manual-connections)
+    [WatchTower](https://github.com/containrrr/watchtower)
+    [Glueton](https://github.com/qdm12/gluetun)
+    [Radarr](https://wiki.servarr.com/radarr)
+    [Sonarr](https://wiki.servarr.com/sonarr)
+    [TailScale](https://tailscale.com/kb/1017/install)
