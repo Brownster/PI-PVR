@@ -411,18 +411,6 @@ services:
       - WATCHTOWER_SCHEDULE="0 3 * * *" # Run daily at 3 AM
     restart: unless-stopped
 
-#  $PORTAINER_CONTAINER:
-#    image: portainer/portainer-ce:latest
-#    container_name: portainer
-#    restart: unless-stopped
-#    ports:
-#      - "9000:9000"
-#    volumes:
-#      - /var/run/docker.sock:/var/run/docker.sock  # Access to Docker
-#      - portainer_data:/data
-#    environment:
-#      TZ: "${TIMEZONE}"  # Use the timezone from your script
-
 networks:
   $CONTAINER_NETWORK:
     driver: bridge
