@@ -38,7 +38,7 @@ MOVIES_FOLDER="Movies"       # Name of the folder for movies
 TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows
 
 # Exit on error
-set -e
+set -euo pipefail
 
 # Create .env file for sensitive data
 create_env_file() {
@@ -460,6 +460,85 @@ deploy_docker_compose() {
 }
 
 
+setup_mount_and_docker_start() {
+    echo "Configuring drives to mount at boot and Docker to start afterwards..."
+
+    # Variables for mount points and device paths
+    STORAGE_MOUNT="/mnt/storage"
+    DOWNLOAD_MOUNT="/mnt/downloads"
+
+    # Get device UUIDs for fstab
+    STORAGE_UUID=$(blkid -s UUID -o value $(findmnt -nT "$STORAGE_MOUNT" | awk '{print $2}'))
+    DOWNLOAD_UUID=$(blkid -s UUID -o value $(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}'))
+
+    if [[ -z "$STORAGE_UUID" || -z "$DOWNLOAD_UUID" ]]; then
+        echo "Error: Could not determine UUIDs for storage or download drives."
+        exit 1
+    fi
+
+    # Update /etc/fstab for persistent mount
+    echo "Updating /etc/fstab..."
+    sudo bash -c "cat >> /etc/fstab" <<EOF
+UUID=$STORAGE_UUID $STORAGE_MOUNT ext4 defaults 0 2
+UUID=$DOWNLOAD_UUID $DOWNLOAD_MOUNT ext4 defaults 0 2
+EOF
+
+    # Test the fstab changes
+    sudo mount -a
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to mount drives. Please check /etc/fstab."
+        exit 1
+    fi
+
+    echo "Drives are configured to mount at boot."
+
+    # Create systemd service for Docker start
+    echo "Creating systemd service to start Docker containers after mounts..."
+    sudo bash -c "cat > /etc/systemd/system/docker-compose-start.service" <<EOF
+[Unit]
+Description=Ensure drives are mounted and start Docker containers
+Requires=local-fs.target
+After=local-fs.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check_mount_and_start.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Create the script to check mounts and start Docker
+    sudo bash -c "cat > /usr/local/bin/check_mount_and_start.sh" <<'EOF'
+#!/bin/bash
+
+STORAGE_MOUNT="/mnt/storage"
+DOWNLOAD_MOUNT="/mnt/downloads"
+DOCKER_COMPOSE_FILE="$HOME/docker/docker-compose.yml"
+
+# Wait until mounts are ready
+until mountpoint -q "$STORAGE_MOUNT" && mountpoint -q "$DOWNLOAD_MOUNT"; do
+    echo "Waiting for drives to be mounted..."
+    sleep 5
+done
+
+echo "Drives are mounted. Starting Docker containers..."
+docker-compose -f "$DOCKER_COMPOSE_FILE" up -d
+EOF
+
+    # Make the script executable
+    sudo chmod +x /usr/local/bin/check_mount_and_start.sh
+
+    # Enable and start the systemd service
+    sudo systemctl enable docker-compose-start.service
+    sudo systemctl start docker-compose-start.service
+
+    echo "Configuration complete. Docker containers will start after drives are mounted on reboot."
+}
+
+
+
 # Main setup function
 main() {
     echo "Starting setup..."
@@ -471,6 +550,7 @@ main() {
     install_dependencies
     setup_docker_network
     deploy_docker_compose
+    setup_mount_and_docker_start
     #preconfigure_apps
     echo "Setup complete. Update the .env file with credentials if not already done."
     echo "Setup Summary:"
