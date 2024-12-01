@@ -166,7 +166,7 @@ setup_usb_and_samba() {
     read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
     
-    read -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
+    read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
     if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
         DOWNLOAD_DRIVE=$STORAGE_DRIVE
     else
@@ -188,8 +188,8 @@ setup_usb_and_samba() {
     sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
 
     # Detect and create media directories
-    MOVIES_DIR="$STORAGE_MOUNT/Movies"
-    TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
+    MOVIES_DIR="$STORAGE_MOUNT/$MOVIES_FOLDER"
+    TVSHOWS_DIR="$STORAGE_MOUNT/$TVSHOWS_FOLDER"
 
     if [[ -d "$MOVIES_DIR" ]]; then
         echo "Movies directory already exists at $MOVIES_DIR. Skipping creation."
@@ -262,9 +262,10 @@ EOF
     echo "Storage Drive Mounted: $STORAGE_MOUNT"
     echo "Download Drive Mounted: $DOWNLOAD_MOUNT"
     echo "Samba Shares:"
-    echo "  \\$SERVER_IP\\Movies"
-    echo "  \\$SERVER_IP\\TVShows"
-    echo "  \\$SERVER_IP\\Downloads"
+    printf '  \\\\%s\\Movies\n' "$SERVER_IP"
+    printf '  \\\\%s\\TVShows\n' "$SERVER_IP"
+    printf '  \\\\%s\\Downloads\n' "$SERVER_IP"
+
 }
 
 
@@ -309,8 +310,8 @@ create_docker_compose() {
 version: "3.8"
 services:
   gluetun:
-    image: qmcgaw/gluetun
-    container_name: gluetun
+    image: $VPN_IMAGE
+    container_name: $VPN_CONTAINER
     cap_add:
       - NET_ADMIN
     devices:
@@ -591,9 +592,10 @@ main() {
     echo "File shares available:"
     if [[ "$SHARE_METHOD" == "1" ]]; then
         echo "  Samba Shares:"
-        echo "    \\$SERVER_IP\\Movies"
-        echo "    \\$SERVER_IP\\TVShows"
-        echo "    \\$SERVER_IP\\Downloads"
+        printf '    \\\\%s\\\\Movies\n' "$SERVER_IP"
+        printf '    \\\\%s\\\\TVShows\n' "$SERVER_IP"
+        printf '    \\\\%s\\\\Downloads\n' "$SERVER_IP"
+
     elif [[ "$SHARE_METHOD" == "2" ]]; then
         echo "  NFS Shares:"
         echo "    $SERVER_IP:$STORAGE_DIR"
