@@ -122,6 +122,7 @@ setup_pia_vpn() {
 
     if [[ $? -eq 0 ]]; then
         echo "PIA WireGuard VPN setup complete."
+        wg-quick down pia
     else
         echo "Error: PIA setup script failed."
         exit 1
