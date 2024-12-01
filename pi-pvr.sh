@@ -385,9 +385,12 @@ services:
     network_mode: "service:$VPN_CONTAINER"
     environment:
       - TZ=$TIMEZONE
+      - PUID=1000
+      - PGID=1000
     volumes:
       - $DOCKER_DIR/nzbget:/config
-      - $MOUNT_POINT/Downloads:/downloads
+      - $MOUNT_POINT/Downloads/incomplete:/incomplete
+      - $MOUNT_POINT/Downloads/complete:/complete
     restart: unless-stopped
 
   $WATCHTOWER_CONTAINER:
@@ -400,6 +403,18 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE="0 3 * * *" # Run daily at 3 AM
     restart: unless-stopped
+
+  $PORTAINER_CONTAINER:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Access to Docker
+      - portainer_data:/data
+    environment:
+      TZ: "${TIMEZONE}"  # Use the timezone from your script
 
 networks:
   $CONTAINER_NETWORK:
@@ -565,6 +580,7 @@ main() {
         ["Transmission"]="9091"
         ["NZBGet"]="6789"
         ["Watchtower"]="Auto-Updater"
+        ["Portainer"]="9000"
     )
 
     # Loop through the services and display their ports
