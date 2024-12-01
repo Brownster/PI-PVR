@@ -86,6 +86,14 @@ setup_tailscale() {
 setup_pia_vpn() {
     echo "Setting up PIA WireGuard VPN..."
 
+    # Source the .env file to load PIA credentials
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE"
+    else
+        echo "Error: .env file not found. Ensure you have run create_env_file first."
+        exit 1
+    fi
+
     # Clone the PIA manual-connections repository if not already present
     if [[ ! -d "manual-connections" ]]; then
         echo "Cloning PIA manual-connections repository..."
@@ -301,6 +309,8 @@ setup_usb_and_nfs() {
 # Create Docker Compose file
 create_docker_compose() {
     echo "Creating Docker Compose file..."
+    STORAGE_MOUNT="/mnt/storage"
+    DOWNLOAD_MOUNT="/mnt/downloads"
     cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
@@ -337,7 +347,7 @@ services:
       - TZ=$TIMEZONE
     volumes:
       - $DOCKER_DIR/jackett:/config
-      - $MOUNT_POINT/Downloads:/downloads
+      - $DOWNLOAD_MOUNT:/downloads
     restart: unless-stopped
 
   $SONARR_CONTAINER:
@@ -348,8 +358,8 @@ services:
       - TZ=$TIMEZONE
     volumes:
       - $DOCKER_DIR/sonarr:/config
-      - $MOUNT_POINT/TVShows:/tv
-      - $MOUNT_POINT/Downloads:/downloads
+      - $STORAGE_MOUNT/$TVSHOWS_FOLDER:/tv
+      - $DOWNLOAD_MOUNT:/downloads
     restart: unless-stopped
 
   $RADARR_CONTAINER:
@@ -360,8 +370,8 @@ services:
       - TZ=$TIMEZONE
     volumes:
       - $DOCKER_DIR/radarr:/config
-      - $MOUNT_POINT/Movies:/movies
-      - $MOUNT_POINT/Downloads:/downloads
+      - $STORAGE_MOUNT/$MOVIES_FOLDER:/movies
+      - $DOWNLOAD_MOUNT:/downloads
     restart: unless-stopped
 
   $TRANSMISSION_CONTAINER:
@@ -372,7 +382,7 @@ services:
       - TZ=$TIMEZONE
     volumes:
       - $DOCKER_DIR/transmission:/config
-      - $MOUNT_POINT/Downloads:/downloads
+      - $DOWNLOAD_MOUNT:/downloads
     restart: unless-stopped
 
   $NZBGET_CONTAINER:
@@ -385,8 +395,8 @@ services:
       - PGID=1000
     volumes:
       - $DOCKER_DIR/nzbget:/config
-      - $MOUNT_POINT/Downloads/incomplete:/incomplete
-      - $MOUNT_POINT/Downloads/complete:/complete
+      - $DOWNLOAD_MOUNT/incomplete:/incomplete
+      - $DOWNLOAD_MOUNT/complete:/complete
     restart: unless-stopped
 
   $WATCHTOWER_CONTAINER:
@@ -400,17 +410,17 @@ services:
       - WATCHTOWER_SCHEDULE="0 3 * * *" # Run daily at 3 AM
     restart: unless-stopped
 
-  $PORTAINER_CONTAINER:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Access to Docker
-      - portainer_data:/data
-    environment:
-      TZ: "${TIMEZONE}"  # Use the timezone from your script
+#  $PORTAINER_CONTAINER:
+#    image: portainer/portainer-ce:latest
+#    container_name: portainer
+#    restart: unless-stopped
+#    ports:
+#      - "9000:9000"
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock  # Access to Docker
+#      - portainer_data:/data
+#    environment:
+#      TZ: "${TIMEZONE}"  # Use the timezone from your script
 
 networks:
   $CONTAINER_NETWORK:
@@ -418,6 +428,7 @@ networks:
 EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
 }
+
     # Install required dependencies, including git
     echo "Installing dependencies..."
     sudo apt update
@@ -560,7 +571,7 @@ EOF
 main() {
     echo "Starting setup..."
     create_env_file
-    setup_tailscale
+    #setup_tailscale
     install_dependencies
     setup_pia_vpn
     create_docker_compose
