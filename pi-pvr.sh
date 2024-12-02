@@ -94,37 +94,50 @@ setup_pia_vpn() {
         exit 1
     fi
 
-    # Clone the PIA manual-connections repository if not already present
-    if [[ ! -d "manual-connections" ]]; then
-        echo "Cloning PIA manual-connections repository..."
-        git clone https://github.com/pia-foss/manual-connections.git
-    else
-        echo "PIA manual-connections repository already exists. Skipping clone."
+    # Ensure PIA credentials are set
+    if [[ -z "$PIA_USERNAME" || -z "$PIA_PASSWORD" ]]; then
+        echo "Error: PIA credentials are not set. Ensure PIA_USERNAME and PIA_PASSWORD are correctly provided in the .env file."
+        exit 1
     fi
 
-    # Navigate to the repository
-    cd manual-connections || { echo "Failed to navigate to manual-connections directory."; exit 1; }
-
-    # Install required dependencies, including git
+    # Install required dependencies, including curl and jq
     echo "Installing dependencies..."
     sudo apt update
     sudo apt install -y curl jq wireguard-tools git
 
     # Generate token using PIA credentials
     echo "Generating PIA token..."
-    PIA_USER="$PIA_USERNAME" PIA_PASS="$PIA_PASSWORD" sudo ./get_token.sh
-    if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to generate token."
+
+    # Make sure curl and jq are installed
+    for cmd in curl jq; do
+        if ! command -v "$cmd" >/dev/null; then
+            echo "$cmd could not be found. Please install $cmd."
+            exit 1
+        fi
+    done
+
+    # Generate the token by sending a POST request to the PIA API
+    generateTokenResponse=$(curl -s --location --request POST \
+        'https://www.privateinternetaccess.com/api/client/v2/token' \
+        --form "username=$PIA_USERNAME" \
+        --form "password=$PIA_PASSWORD")
+
+    # Check if the response contains a token
+    token=$(echo "$generateTokenResponse" | jq -r '.token')
+    if [[ -z "$token" || "$token" == "null" ]]; then
+        echo "Error: Could not authenticate with the login credentials provided!"
         exit 1
     fi
 
-    # Read the generated token
-    TOKEN=$(cat /opt/piavpn-manual/token | head -n 1)
-    if [[ -z "$TOKEN" ]]; then
-        echo "Error: Token generation failed."
-        exit 1
-    fi
+    # Create a timestamp for when the token will expire (24 hours from now)
+    tokenExpiration=$(date +"%c" --date='1 day')
+    tokenLocation="/opt/piavpn-manual/token"
+
+    # Save the token to a file for later use
+    echo "$token" > "$tokenLocation" || exit 1
+    echo "$tokenExpiration" >> "$tokenLocation"
     echo "Token generated successfully."
+    echo "This token will expire in 24 hours, on $tokenExpiration."
 
     # Specify the desired location (Netherlands, Amsterdam)
     REGION="nl-amsterdam.privacy.network"
@@ -132,7 +145,7 @@ setup_pia_vpn() {
     echo "Requesting server information for region: $REGION..."
 
     # Run WireGuard setup script using the token
-    WG_CONFIG=$(PIA_AUTHTOKEN="$TOKEN" PIA_SERVER_IP="$SERVER_IP" PIA_DNS="true" sudo ./connect_to_wireguard_with_token.sh)
+    WG_CONFIG=$(PIA_AUTHTOKEN="$token" PIA_SERVER_IP="$SERVER_IP" PIA_DNS="true" sudo ./connect_to_wireguard_with_token.sh)
     if [[ -z "$WG_CONFIG" ]]; then
         echo "Error: Failed to create WireGuard configuration."
         exit 1
@@ -148,6 +161,7 @@ setup_pia_vpn() {
     # Return to the previous directory
     cd ..
 }
+
 
 
 #choose smb or nfs (smb if using windows devices to connect)
