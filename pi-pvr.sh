@@ -103,7 +103,7 @@ setup_pia_vpn() {
     # Install required dependencies, including curl and jq
     echo "Installing dependencies..."
     sudo apt update
-    sudo apt install -y curl jq wireguard-tools git
+    sudo apt install -y curl
 
     # Generate token using PIA credentials
     echo "Generating PIA token..."
@@ -139,14 +139,26 @@ setup_pia_vpn() {
     echo "Token generated successfully."
     echo "This token will expire in 24 hours, on $tokenExpiration."
 
-    # Specify the desired location (Netherlands, Amsterdam)
-    REGION="nl-amsterdam.privacy.network"
-    SERVER_IP="181.214.206.192"
-    echo "Requesting server information for region: $REGION..."
+    # Get the server information
+    echo "Requesting server information..."
+    SERVER_INFO=$(curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6")
 
-    # Run WireGuard setup script using the token
-    WG_CONFIG=$(PIA_AUTHTOKEN="$token" PIA_SERVER_IP="$SERVER_IP" PIA_DNS="true" sudo ./connect_to_wireguard_with_token.sh)
-    if [[ -z "$WG_CONFIG" ]]; then
+    # Extract the information for the desired location (Netherlands, Amsterdam)
+    REGION="nl-amsterdam.privacy.network"
+    server_ip=$(echo "$SERVER_INFO" | jq -r --arg region "$REGION" '.regions[] | select(.id == $region) | .servers.wg[0].ip')
+
+    if [[ -z "$server_ip" || "$server_ip" == "null" ]]; then
+        echo "Error: Could not retrieve server information for region: $REGION"
+        exit 1
+    fi
+
+    echo "Server IP for region $REGION is $server_ip."
+
+    # Generate the WireGuard configuration
+    WG_CONFIG=$(curl -s "https://10.0.0.1:1337/addKey" --insecure \
+        -d "token=$token" -d "server_ip=$server_ip")
+
+    if [[ -z "$WG_CONFIG" || "$WG_CONFIG" == "null" ]]; then
         echo "Error: Failed to create WireGuard configuration."
         exit 1
     fi
@@ -157,10 +169,8 @@ setup_pia_vpn() {
     echo "$WG_CONFIG" > "$WG_CONFIG_FILE"
     chmod 600 "$WG_CONFIG_FILE"
     echo "WireGuard configuration saved to $WG_CONFIG_FILE."
-
-    # Return to the previous directory
-    cd ..
 }
+
 
 
 
