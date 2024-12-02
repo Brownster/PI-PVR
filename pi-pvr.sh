@@ -110,23 +110,40 @@ setup_pia_vpn() {
     sudo apt update
     sudo apt install -y curl jq wireguard-tools git
 
-    # Run the setup script with environment variables
-    echo "Running PIA setup script..."
-    sudo VPN_PROTOCOL=wireguard \
-        DISABLE_IPV6=yes \
-        PIA_PF=false \
-        PIA_DNS=true \
-        PIA_USER="$PIA_USERNAME" \
-        PIA_PASS="$PIA_PASSWORD" \
-        ./run_setup.sh
-
-    if [[ $? -eq 0 ]]; then
-        echo "PIA WireGuard VPN setup complete."
-        wg-quick down pia
-    else
-        echo "Error: PIA setup script failed."
+    # Generate token using PIA credentials
+    echo "Generating PIA token..."
+    PIA_USER="$PIA_USERNAME" PIA_PASS="$PIA_PASSWORD" sudo ./get_token.sh
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to generate token."
         exit 1
     fi
+
+    # Read the generated token
+    TOKEN=$(cat /opt/piavpn-manual/token | head -n 1)
+    if [[ -z "$TOKEN" ]]; then
+        echo "Error: Token generation failed."
+        exit 1
+    fi
+    echo "Token generated successfully."
+
+    # Specify the desired location (Netherlands, Amsterdam)
+    REGION="nl-amsterdam.privacy.network"
+    SERVER_IP="181.214.206.192"
+    echo "Requesting server information for region: $REGION..."
+
+    # Run WireGuard setup script using the token
+    WG_CONFIG=$(PIA_AUTHTOKEN="$TOKEN" PIA_SERVER_IP="$SERVER_IP" PIA_DNS="true" sudo ./connect_to_wireguard_with_token.sh)
+    if [[ -z "$WG_CONFIG" ]]; then
+        echo "Error: Failed to create WireGuard configuration."
+        exit 1
+    fi
+
+    # Save the WireGuard configuration to wg0.conf
+    WG_CONFIG_FILE="$DOCKER_DIR/manual-connections/wg0.conf"
+    mkdir -p "$(dirname "$WG_CONFIG_FILE")"
+    echo "$WG_CONFIG" > "$WG_CONFIG_FILE"
+    chmod 600 "$WG_CONFIG_FILE"
+    echo "WireGuard configuration saved to $WG_CONFIG_FILE."
 
     # Return to the previous directory
     cd ..
@@ -410,7 +427,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ./manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro
+      - $DOCKER_DIR/manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro
     environment:
       - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=wireguard
