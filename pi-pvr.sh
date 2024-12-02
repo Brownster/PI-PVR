@@ -583,7 +583,7 @@ setup_docker_network() {
 deploy_docker_compose() {
     echo "Deploying Docker Compose stack..."
     sudo usermod -aG docker "$USER"
-    newgrp docker
+    #newgrp docker
     if ! docker compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
         echo "Error: Failed to deploy Docker Compose stack."
         exit 1
@@ -674,12 +674,12 @@ EOF
 main() {
     echo "Starting setup..."
     create_env_file
-    #setup_tailscale
+    setup_tailscale
     install_dependencies
-    #setup_pia_vpn
-    #create_docker_compose
-    #choose_sharing_method
-    #setup_docker_network
+    setup_pia_vpn
+    create_docker_compose
+    choose_sharing_method
+    setup_docker_network
     deploy_docker_compose
     setup_mount_and_docker_start
     echo "Setup complete. Update the .env file with credentials if not already done."
