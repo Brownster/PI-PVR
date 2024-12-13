@@ -151,29 +151,28 @@ setup_pia_vpn() {
     echo "This token will expire in 24 hours, on $tokenExpiration."
 
     # Get the server information
-    echo "Requesting server information..."
-    SERVER_INFO=$(curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6")
+    # Fetch the raw server information
+    SERVER_INFO_RAW=$(curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6")
+    echo "Raw server info fetched."
 
-    # Debugging: Output the raw response
-    echo "$SERVER_INFO"
+    # Extract region data for nl_amsterdam
+    echo "Extracting region data for nl_amsterdam..."
+    SERVER_INFO=$(echo "$SERVER_INFO_RAW" | jq -c '.regions[] | select(.id == "nl_amsterdam")')
 
-    # Validate the JSON structure
-    if ! echo "$SERVER_INFO" | jq empty 2>/dev/null; then
-        echo "Error: Invalid JSON response from server. Response was:"
-        echo "$SERVER_INFO"
-        exit 1
-    fi
+    # Output the filtered server info for debugging
+    echo "Filtered server info: $SERVER_INFO"
 
-    # Extract the information for the desired location (Netherlands, Amsterdam)
-    REGION="nl-amsterdam"
-    server_ip=$(echo "$SERVER_INFO" | jq -r --arg region "$REGION" '.regions[] | select(.id == $region) | .servers.wg[0].ip')
+    # Extract the WireGuard server IP
+    server_ip=$(echo "$SERVER_INFO" | jq -r '.servers.wg[0].ip')
 
+    # Validate the extracted server IP
     if [[ -z "$server_ip" || "$server_ip" == "null" ]]; then
-        echo "Error: Could not retrieve server information for region: $REGION"
+        echo "Error: Could not retrieve WireGuard server IP for region nl_amsterdam."
         exit 1
     fi
 
-    echo "Server IP for region $REGION is $server_ip."
+    # Output the result
+    echo "Server IP for region nl_amsterdam is $server_ip."
 
     # Generate the WireGuard configuration
     WG_CONFIG=$(curl -s "https://10.0.0.1:1337/addKey" --insecure \
