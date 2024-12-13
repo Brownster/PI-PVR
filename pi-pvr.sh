@@ -154,8 +154,18 @@ setup_pia_vpn() {
     echo "Requesting server information..."
     SERVER_INFO=$(curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6")
 
+    # Debugging: Output the raw response
+    echo "$SERVER_INFO"
+
+    # Validate the JSON structure
+    if ! echo "$SERVER_INFO" | jq empty 2>/dev/null; then
+        echo "Error: Invalid JSON response from server. Response was:"
+        echo "$SERVER_INFO"
+        exit 1
+    fi
+
     # Extract the information for the desired location (Netherlands, Amsterdam)
-    REGION="nl-amsterdam.privacy.network"
+    REGION="nl-amsterdam"
     server_ip=$(echo "$SERVER_INFO" | jq -r --arg region "$REGION" '.regions[] | select(.id == $region) | .servers.wg[0].ip')
 
     if [[ -z "$server_ip" || "$server_ip" == "null" ]]; then
