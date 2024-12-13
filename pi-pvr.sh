@@ -103,18 +103,10 @@ setup_pia_vpn() {
     # Install required dependencies, including curl and jq
     echo "Installing dependencies..."
     sudo apt update
-    sudo apt install -y curl
+    sudo apt install -y curl jq
 
     # Generate token using PIA credentials
     echo "Generating PIA token..."
-
-    # Make sure curl and jq are installed
-    for cmd in curl jq; do
-        if ! command -v "$cmd" >/dev/null; then
-            echo "$cmd could not be found. Please install $cmd."
-            exit 1
-        fi
-    done
 
     # Create the directory for storing the token
     TOKEN_DIR="/opt/piavpn-manual"
@@ -142,36 +134,14 @@ setup_pia_vpn() {
 
     # Create a timestamp for when the token will expire (24 hours from now)
     tokenExpiration=$(date +"%c" --date='1 day')
-    tokenLocation="/opt/piavpn-manual/token"
-
-    # Save the token to a file for later use
-    echo "$token" > "$tokenLocation" || exit 1
-    echo "$tokenExpiration" >> "$tokenLocation"
+    echo "$token" > "$TOKEN_FILE" || exit 1
+    echo "$tokenExpiration" >> "$TOKEN_FILE"
     echo "Token generated successfully."
     echo "This token will expire in 24 hours, on $tokenExpiration."
 
-    # Get the server information
-    # Fetch the raw server information
-    SERVER_INFO_RAW=$(curl -s "https://serverlist.piaservers.net/vpninfo/servers/v6")
-    echo "Raw server info fetched."
+    # Hardcoded Amsterdam server details
+    server_ip="191.96.168.167"
 
-    # Extract region data for nl_amsterdam
-    echo "Extracting region data for nl_amsterdam..."
-    SERVER_INFO=$(echo "$SERVER_INFO_RAW" | jq -c '.regions[] | select(.id == "nl_amsterdam")')
-
-    # Output the filtered server info for debugging
-    echo "Filtered server info: $SERVER_INFO"
-
-    # Extract the WireGuard server IP
-    server_ip=$(echo "$SERVER_INFO" | jq -r '.servers.wg[0].ip')
-
-    # Validate the extracted server IP
-    if [[ -z "$server_ip" || "$server_ip" == "null" ]]; then
-        echo "Error: Could not retrieve WireGuard server IP for region nl_amsterdam."
-        exit 1
-    fi
-
-    # Output the result
     echo "Server IP for region nl_amsterdam is $server_ip."
 
     # Generate the WireGuard configuration
@@ -190,9 +160,6 @@ setup_pia_vpn() {
     chmod 600 "$WG_CONFIG_FILE"
     echo "WireGuard configuration saved to $WG_CONFIG_FILE."
 }
-
-
-
 
 #choose smb or nfs (smb if using windows devices to connect)
 choose_sharing_method() {
