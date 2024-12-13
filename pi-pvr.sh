@@ -84,7 +84,7 @@ setup_tailscale() {
 }
 
 setup_pia_vpn() {
-    echo "Setting up PIA WireGuard VPN..."
+    echo "Setting up PIA OpenVPN VPN..."
 
     # Source the .env file to load PIA credentials
     if [[ -f "$ENV_FILE" ]]; then
@@ -100,66 +100,22 @@ setup_pia_vpn() {
         exit 1
     fi
 
-    # Install required dependencies, including curl and jq
-    echo "Installing dependencies..."
-    sudo apt update
-    sudo apt install -y curl jq
+    # Create the gluetun directory for configuration
+    GLUETUN_DIR="$DOCKER_DIR/gluetun"
+    echo "Creating Gluetun configuration directory at $GLUETUN_DIR..."
+    mkdir -p "$GLUETUN_DIR"
 
-    # Generate token using PIA credentials
-    echo "Generating PIA token..."
+    # Write the environment variables to a Docker Compose file
+    cat > "$GLUETUN_DIR/.env" <<EOF
+VPN_SERVICE_PROVIDER=private internet access
+OPENVPN_USER=$PIA_USERNAME
+OPENVPN_PASSWORD=$PIA_PASSWORD
+SERVER_REGIONS=Netherlands
+EOF
 
-    # Create the directory for storing the token
-    TOKEN_DIR="/opt/piavpn-manual"
-    TOKEN_FILE="$TOKEN_DIR/token"
-
-    if [[ ! -d "$TOKEN_DIR" ]]; then
-        echo "Creating directory for token storage at $TOKEN_DIR..."
-        sudo mkdir -p "$TOKEN_DIR"
-        sudo chmod 700 "$TOKEN_DIR"
-        sudo chown $USER:$USER "$TOKEN_DIR"
-    fi
-
-    # Generate the token by sending a POST request to the PIA API
-    generateTokenResponse=$(curl -s --location --request POST \
-        'https://www.privateinternetaccess.com/api/client/v2/token' \
-        --form "username=$PIA_USERNAME" \
-        --form "password=$PIA_PASSWORD")
-
-    # Check if the response contains a token
-    token=$(echo "$generateTokenResponse" | jq -r '.token')
-    if [[ -z "$token" || "$token" == "null" ]]; then
-        echo "Error: Could not authenticate with the login credentials provided!"
-        exit 1
-    fi
-
-    # Create a timestamp for when the token will expire (24 hours from now)
-    tokenExpiration=$(date +"%c" --date='1 day')
-    echo "$token" > "$TOKEN_FILE" || exit 1
-    echo "$tokenExpiration" >> "$TOKEN_FILE"
-    echo "Token generated successfully."
-    echo "This token will expire in 24 hours, on $tokenExpiration."
-
-    # Hardcoded Amsterdam server details
-    server_ip="191.96.168.167"
-
-    echo "Server IP for region nl_amsterdam is $server_ip."
-
-    # Generate the WireGuard configuration
-    WG_CONFIG=$(curl -s "https://10.0.0.1:1337/addKey" --insecure \
-        -d "token=$token" -d "server_ip=$server_ip")
-
-    if [[ -z "$WG_CONFIG" || "$WG_CONFIG" == "null" ]]; then
-        echo "Error: Failed to create WireGuard configuration."
-        exit 1
-    fi
-
-    # Save the WireGuard configuration to wg0.conf
-    WG_CONFIG_FILE="$DOCKER_DIR/manual-connections/wg0.conf"
-    mkdir -p "$(dirname "$WG_CONFIG_FILE")"
-    echo "$WG_CONFIG" > "$WG_CONFIG_FILE"
-    chmod 600 "$WG_CONFIG_FILE"
-    echo "WireGuard configuration saved to $WG_CONFIG_FILE."
+    echo "OpenVPN setup complete. Configuration saved to $GLUETUN_DIR/.env."
 }
+
 
 #choose smb or nfs (smb if using windows devices to connect)
 choose_sharing_method() {
