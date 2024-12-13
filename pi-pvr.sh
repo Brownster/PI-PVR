@@ -63,6 +63,27 @@ EOF
     fi
 }
 
+# Function to update /etc/fstab with the new mount point
+update_fstab() {
+    local mount_point="$1"
+    local device="$2"
+
+    # Get the UUID of the device
+    local uuid=$(blkid -s UUID -o value "$device")
+    if [[ -z "$uuid" ]]; then
+        echo "Error: Could not retrieve UUID for device $device."
+        exit 1
+    fi
+
+    # Check if the mount point is already in /etc/fstab
+    if grep -q "$mount_point" /etc/fstab; then
+        echo "Mount point $mount_point already exists in /etc/fstab. Skipping."
+    else
+        echo "Adding $mount_point to /etc/fstab..."
+        echo "UUID=$uuid $mount_point auto defaults 0 2" | sudo tee -a /etc/fstab > /dev/null
+    fi
+}
+
 
 # Install and configure Tailscale
 setup_tailscale() {
