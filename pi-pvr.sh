@@ -358,8 +358,8 @@ setup_usb_and_nfs() {
     sudo apt-get install -y nfs-kernel-server
 
     echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE | awk '/part/ {print "/dev/"$1, $2}' | sed 's/[└├─]//g')
-    
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
+
     if [[ -z "$USB_DRIVES" ]]; then
         echo "No USB drives detected. Please ensure they are connected and retry."
         exit 1
@@ -369,38 +369,56 @@ setup_usb_and_nfs() {
     echo "$USB_DRIVES" | nl
     read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
+    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
 
     read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
     if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
         DOWNLOAD_DRIVE=$STORAGE_DRIVE
+        DOWNLOAD_FS=$STORAGE_FS
     else
         echo "Available USB drives:"
         echo "$USB_DRIVES" | nl
         read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
         DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
+        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
     fi
 
-    # Mount drives (assuming NTFS filesystem)
+    # Define mount points
     STORAGE_MOUNT="/mnt/storage"
     DOWNLOAD_MOUNT="/mnt/downloads"
 
+    # Mount storage drive
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
-    sudo apt install -y ntfs-3g
-    sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    if [[ "$STORAGE_FS" == "ntfs" ]]; then
+        sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    else
+        sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
+    fi
     if [[ $? -ne 0 ]]; then
         echo "Error: Failed to mount $STORAGE_DRIVE. Please check the drive and try again."
         exit 1
     fi
 
+    # Update fstab for storage drive
+    update_fstab "$STORAGE_MOUNT" "$STORAGE_DRIVE"
+
+    # Mount download drive if different
     if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
         echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
         sudo mkdir -p "$DOWNLOAD_MOUNT"
-        sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        if [[ "$DOWNLOAD_FS" == "ntfs" ]]; then
+            sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        else
+            sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
+        fi
         if [[ $? -ne 0 ]]; then
             echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
             exit 1
         fi
+
+        # Update fstab for download drive
+        update_fstab "$DOWNLOAD_MOUNT" "$DOWNLOAD_DRIVE"
     fi
 
     # Detect and create media directories
@@ -430,15 +448,19 @@ setup_usb_and_nfs() {
     # Update /etc/exports for NFS
     EXPORTS_FILE="/etc/exports"
     echo "Setting up NFS share..."
-    
+
     # Add storage directory if not already in exports
     if ! grep -q "$STORAGE_MOUNT" "$EXPORTS_FILE"; then
         echo "$STORAGE_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    else
+        echo "NFS export for $STORAGE_MOUNT already exists. Skipping."
     fi
 
     # Add download directory if not already in exports
     if ! grep -q "$DOWNLOAD_MOUNT" "$EXPORTS_FILE"; then
         echo "$DOWNLOAD_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+    else
+        echo "NFS export for $DOWNLOAD_MOUNT already exists. Skipping."
     fi
 
     echo "Exporting directories for NFS..."
