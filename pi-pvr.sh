@@ -455,10 +455,9 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - $DOCKER_DIR/manual-connections/wg0.conf:/gluetun/wireguard/wg0.conf:ro
-    environment:
-      - VPN_SERVICE_PROVIDER=custom
-      - VPN_TYPE=wireguard
+      - $DOCKER_DIR/gluetun:/gluetun
+    env_file:
+      - $DOCKER_DIR/gluetun/.env
     healthcheck:
       test: curl --fail http://localhost:8000 || exit 1
       interval: 30s
