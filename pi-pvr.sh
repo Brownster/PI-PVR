@@ -116,6 +116,17 @@ setup_pia_vpn() {
         fi
     done
 
+    # Create the directory for storing the token
+    TOKEN_DIR="/opt/piavpn-manual"
+    TOKEN_FILE="$TOKEN_DIR/token"
+
+    if [[ ! -d "$TOKEN_DIR" ]]; then
+        echo "Creating directory for token storage at $TOKEN_DIR..."
+        sudo mkdir -p "$TOKEN_DIR"
+        sudo chmod 700 "$TOKEN_DIR"
+        sudo chown $USER:$USER "$TOKEN_DIR"
+    fi
+
     # Generate the token by sending a POST request to the PIA API
     generateTokenResponse=$(curl -s --location --request POST \
         'https://www.privateinternetaccess.com/api/client/v2/token' \
