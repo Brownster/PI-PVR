@@ -603,7 +603,7 @@ EOF
     # Install required dependencies, including git
     echo "Installing dependencies..."
     sudo apt update
-    sudo apt install -y curl jq wireguard-tools git
+    sudo apt install -y curl jq git
 # Install required dependencies
 install_dependencies() {
     echo "Uninstalling any conflicting Docker packages..."
