@@ -728,6 +728,10 @@ EOF
 main() {
     echo "Starting setup..."
     create_env_file
+    # Source the .env file after creating it
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE"
+    fi
     setup_tailscale
     install_dependencies
     setup_pia_vpn
