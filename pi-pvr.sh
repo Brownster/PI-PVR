@@ -46,7 +46,7 @@ PGID=1000
 # Media folder names
 MOVIES_FOLDER="Movies"       # Name of the folder for movies/films/kids films etc
 TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows/TV/kids TV etc
-DOWNLOADS="/mnt/downloads"
+DOWNLOADS="/mnt/storage/downloads"
 STORAGE_MOUNT="/mnt/storage/"
 
 # Samba Variable
