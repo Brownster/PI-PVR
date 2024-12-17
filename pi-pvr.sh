@@ -211,27 +211,30 @@ setup_usb_and_samba() {
     echo "3. Explicitly specify a path for downloads (e.g., internal storage)."
     read -r -p "Enter your choice (1/2/3): " DOWNLOAD_CHOICE
 
-    case "$DOWNLOAD_CHOICE" in
-        1)
-            DOWNLOAD_DRIVE=$STORAGE_DRIVE
-            DOWNLOAD_FS=$STORAGE_FS
-            ;;
-        2)
-            echo "Available USB drives:"
-            echo "$USB_DRIVES" | nl
-            read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
-            DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-            DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
-            ;;
-        3)
-            read -r -p "Enter the explicit path for downloads (e.g., /home/username/Downloads): " DOWNLOAD_MOUNT
-            ;;
-        *)
-            echo "Invalid choice. Defaulting to the same drive for downloads."
-            DOWNLOAD_DRIVE=$STORAGE_DRIVE
-            DOWNLOAD_FS=$STORAGE_FS
-            ;;
-    esac
+case "$DOWNLOAD_CHOICE" in
+    1)
+        DOWNLOAD_DRIVE=$STORAGE_DRIVE
+        DOWNLOAD_FS=$STORAGE_FS
+        DOWNLOAD_MOUNT="$STORAGE_MOUNT/downloads"  # Explicitly set the downloads mount path
+        ;;
+    2)
+        echo "Available USB drives:"
+        echo "$USB_DRIVES" | nl
+        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
+        DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
+        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
+        DOWNLOAD_MOUNT="/mnt/downloads"  # Default path for a different drive
+        ;;
+    3)
+        read -r -p "Enter the explicit path for downloads (e.g., /home/username/Downloads): " DOWNLOAD_MOUNT
+        ;;
+    *)
+        echo "Invalid choice. Defaulting to the same drive for downloads."
+        DOWNLOAD_DRIVE=$STORAGE_DRIVE
+        DOWNLOAD_FS=$STORAGE_FS
+        DOWNLOAD_MOUNT="$STORAGE_MOUNT/downloads"  # Default path if invalid input
+        ;;
+esac
 
     # Define mount points
     STORAGE_MOUNT="/mnt/storage"
