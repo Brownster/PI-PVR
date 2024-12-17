@@ -582,8 +582,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      - TZ=Europe/London
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE="0 3 * * *"
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_POLL_INTERVAL=3600  # Check for updates every 1 hour
     restart: unless-stopped
     networks:
       - vpn_network
