@@ -52,6 +52,9 @@ STORAGE_MOUNT="/mnt/storage/"
 # Samba Variable
 SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
 
+#Tailscale
+TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
+
 #PORTS
 JACKET_PORT="9117"
 SONARR_PORT="8989"
@@ -94,7 +97,6 @@ WATCHTOWER_CONTAINER="watchtower"
 WATCHTOWER_IMAGE="containrrr/watchtower"
 
 #Track runs
-TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
 tailscale_install_success=0
 PIA_SETUP_SUCCESS=0
 SHARE_SETUP_SUCCESS=0
