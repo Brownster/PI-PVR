@@ -180,7 +180,7 @@ setup_pia_vpn() {
     fi
 
     # Create the gluetun directory for configuration
-    GLUETUN_DIR="$DOCKER_DIR/gluetun"
+    GLUETUN_DIR="$DOCKER_DIR/$VPN_CONTAINER"
     echo "Creating Gluetun configuration directory at $GLUETUN_DIR..."
     mkdir -p "$GLUETUN_DIR"
 
