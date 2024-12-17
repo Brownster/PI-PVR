@@ -40,6 +40,18 @@ TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows
 # Exit on error
 set -euo pipefail
 
+# Toggle debug mode: true = show all outputs, false = suppress outputs
+DEBUG=true  # Set to 'false' to suppress command outputs
+
+# Function to handle command output based on DEBUG flag
+run() {
+    if [ "$DEBUG" = true ]; then
+        "$@"  # Run commands normally, show output
+    else
+        "$@" >/dev/null 2>&1  # Suppress output
+    fi
+}
+
 # Create .env file for sensitive data
 create_env_file() {
     echo "Creating .env file for sensitive data..."
