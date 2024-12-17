@@ -203,6 +203,9 @@ setup_usb_and_samba() {
     read -r -p "Select the drive number for storage (TV Shows and Movies): " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
     STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
+    
+    # Define storage mount point before case
+    STORAGE_MOUNT="/mnt/storage"
 
     # Option for downloads directory
     echo "Do you want to:"
