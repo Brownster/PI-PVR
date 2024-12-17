@@ -189,7 +189,7 @@ choose_sharing_method() {
 setup_usb_and_samba() {
     echo "Detecting USB drives..."
 
-    # List available partitions, assuming they are NTFS formatted
+    # List available partitions
     USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
 
     if [[ -z "$USB_DRIVES" ]]; then
@@ -197,27 +197,47 @@ setup_usb_and_samba() {
         exit 1
     fi
 
+    # Display USB drives and prompt for storage drive
     echo "Available USB drives:"
     echo "$USB_DRIVES" | nl
-    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
+    read -r -p "Select the drive number for storage (TV Shows and Movies): " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
     STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
 
-    read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
-    if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
-        DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
-    else
-        echo "Available USB drives:"
-        echo "$USB_DRIVES" | nl
-        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
-        DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
-    fi
+    # Option for downloads directory
+    echo "Do you want to:"
+    echo "1. Use the same drive for downloads."
+    echo "2. Use a different USB drive for downloads."
+    echo "3. Explicitly specify a path for downloads (e.g., internal storage)."
+    read -r -p "Enter your choice (1/2/3): " DOWNLOAD_CHOICE
+
+    case "$DOWNLOAD_CHOICE" in
+        1)
+            DOWNLOAD_DRIVE=$STORAGE_DRIVE
+            DOWNLOAD_FS=$STORAGE_FS
+            ;;
+        2)
+            echo "Available USB drives:"
+            echo "$USB_DRIVES" | nl
+            read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
+            DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
+            DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
+            ;;
+        3)
+            read -r -p "Enter the explicit path for downloads (e.g., /home/username/Downloads): " DOWNLOAD_MOUNT
+            ;;
+        *)
+            echo "Invalid choice. Defaulting to the same drive for downloads."
+            DOWNLOAD_DRIVE=$STORAGE_DRIVE
+            DOWNLOAD_FS=$STORAGE_FS
+            ;;
+    esac
 
     # Define mount points
     STORAGE_MOUNT="/mnt/storage"
-    DOWNLOAD_MOUNT="/mnt/downloads"
+    if [[ -z "$DOWNLOAD_MOUNT" ]]; then
+        DOWNLOAD_MOUNT="/mnt/downloads"
+    fi
 
     # Mount storage drive
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
@@ -235,8 +255,8 @@ setup_usb_and_samba() {
     # Update fstab for storage drive
     update_fstab "$STORAGE_MOUNT" "$STORAGE_DRIVE"
 
-    # Mount download drive if different
-    if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
+    # Mount download drive or validate path
+    if [[ "$DOWNLOAD_CHOICE" == "2" ]]; then
         echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
         sudo mkdir -p "$DOWNLOAD_MOUNT"
         if [[ "$DOWNLOAD_FS" == "ntfs" ]]; then
@@ -248,62 +268,37 @@ setup_usb_and_samba() {
             echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
             exit 1
         fi
-
-        # Update fstab for download drive
         update_fstab "$DOWNLOAD_MOUNT" "$DOWNLOAD_DRIVE"
+    else
+        # Verify the explicit path exists
+        sudo mkdir -p "$DOWNLOAD_MOUNT"
     fi
 
     # Detect and create media directories
     MOVIES_DIR="$STORAGE_MOUNT/Movies"
     TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
 
-    if [[ -d "$MOVIES_DIR" ]]; then
-        echo "Movies directory already exists at $MOVIES_DIR. Skipping creation."
-    else
-        read -r -p "Movies directory not found. Do you want to create it? (y/n): " CREATE_MOVIES
-        if [[ "$CREATE_MOVIES" =~ ^[Yy]$ ]]; then
-            echo "Creating Movies directory..."
-            sudo mkdir -p "$MOVIES_DIR"
-        else
-            echo "Skipping Movies directory creation."
+    for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR"; do
+        if [[ ! -d "$DIR" ]]; then
+            echo "Creating directory $DIR..."
+            sudo mkdir -p "$DIR"
         fi
-    fi
+    done
 
-    if [[ -d "$TVSHOWS_DIR" ]]; then
-        echo "TVShows directory already exists at $TVSHOWS_DIR. Skipping creation."
-    else
-        read -r -p "TVShows directory not found. Do you want to create it? (y/n): " CREATE_TVSHOWS
-        if [[ "$CREATE_TVSHOWS" =~ ^[Yy]$ ]]; then
-            echo "Creating TVShows directory..."
-            sudo mkdir -p "$TVSHOWS_DIR"
-        else
-            echo "Skipping TVShows directory creation."
-        fi
-    fi
+    # Set permissions for storage and downloads
+    echo "Setting permissions..."
+    sudo chmod -R 775 "$STORAGE_MOUNT" "$DOWNLOAD_MOUNT"
+    sudo chown -R "$USER:$USER" "$STORAGE_MOUNT" "$DOWNLOAD_MOUNT"
 
-    # Set permissions for media directories
-    echo "Setting permissions for media directories..."
-    sudo chmod -R 775 "$STORAGE_MOUNT"
-    sudo chown -R $USER:$USER "$STORAGE_MOUNT"
-
-    # Install Samba if not already installed
+    # Install Samba and configure shares
+    echo "Configuring Samba..."
     if ! command -v smbd &> /dev/null; then
-        echo "Samba is not installed. Installing Samba..."
         sudo apt-get install -y samba samba-common-bin
     fi
 
-    # Configure Samba
-    echo "Configuring Samba..."
-    SAMBA_CONFIG="/etc/samba/smb.conf"
-    if [[ -f "$SAMBA_CONFIG" ]]; then
-        if [[ ! -f "$SAMBA_CONFIG.bak" ]]; then
-            echo "Backing up existing Samba configuration..."
-            sudo cp "$SAMBA_CONFIG" "$SAMBA_CONFIG.bak"
-        fi
-
-        if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
-            echo "Adding Samba share for Movies and TVShows..."
-            sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
+    # Add shares
+    if ! grep -q "\[Downloads\]" "$SAMBA_CONFIG"; then
+        sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
 
 [Movies]
    path = $MOVIES_DIR
@@ -323,19 +318,12 @@ setup_usb_and_samba() {
    read only = no
    guest ok = yes
 EOF
-            sudo systemctl restart smbd
-            echo "Samba shares configured and service restarted."
-        else
-            echo "Samba shares already exist. Skipping."
-        fi
-    else
-        echo "Error: Samba configuration file not found at $SAMBA_CONFIG. Please ensure Samba is properly installed."
-        exit 1
+        sudo systemctl restart smbd
     fi
 
     echo "Configuration complete."
     echo "Storage Drive Mounted: $STORAGE_MOUNT"
-    echo "Download Drive Mounted: $DOWNLOAD_MOUNT"
+    echo "Download Location: $DOWNLOAD_MOUNT"
     echo "Samba Shares:"
     printf '  \\\\%s\\Movies\n' "$SERVER_IP"
     printf '  \\\\%s\\TVShows\n' "$SERVER_IP"
@@ -344,6 +332,7 @@ EOF
     # Mark success
     sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
 }
+
 
 setup_usb_and_nfs() {
     echo "Installing necessary NFS packages..."
