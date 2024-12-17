@@ -6,36 +6,6 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 CONTAINER_NETWORK="vpn_network"
 DOCKER_DIR="$HOME/docker"
 ENV_FILE="$DOCKER_DIR/.env"
-TIMEZONE=$(cat /etc/timezone)
-
-# Container Names and Images
-VPN_CONTAINER="vpn"
-VPN_IMAGE="qmcgaw/gluetun"
-
-JACKETT_CONTAINER="jackett"
-JACKETT_IMAGE="linuxserver/jackett"
-
-SONARR_CONTAINER="sonarr"
-SONARR_IMAGE="linuxserver/sonarr"
-
-RADARR_CONTAINER="radarr"
-RADARR_IMAGE="linuxserver/radarr"
-
-TRANSMISSION_CONTAINER="transmission"
-TRANSMISSION_IMAGE="linuxserver/transmission"
-
-NZBGET_CONTAINER="nzbget"
-NZBGET_IMAGE="linuxserver/nzbget"
-
-WATCHTOWER_CONTAINER="watchtower"
-WATCHTOWER_IMAGE="containrrr/watchtower"
-
-# Samba Variable
-SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
-
-# Media folder names
-MOVIES_FOLDER="Movies"       # Name of the folder for movies
-TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows
 
 # Exit on error
 set -euo pipefail
@@ -64,8 +34,66 @@ create_env_file() {
         
 
         cat > "$ENV_FILE" <<EOF
-PIA_USERNAME=$PIA_USERNAME
-PIA_PASSWORD=$PIA_PASSWORD
+#General Docker
+DOCKER_DIR="$HOME/docker"
+
+# Docker Configuration (Optional)
+TIMEZONE=Europe/London
+IMAGE_RELEASE="latest"
+PUID=1000
+PGID=1000
+
+# Media folder names
+MOVIES_FOLDER="Movies"       # Name of the folder for movies/films/kids films etc
+TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows/TV/kids TV etc
+DOWNLOADS="/mnt/downloads"
+STORAGE_MOUNT="/mnt/storage/"
+
+# Samba Variable
+SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
+
+#PORTS
+JACKET_PORT="9117"
+SONARR_PORT="8989"
+RADARR_PORT="7878"
+TRANSMISSION_PORT="9091"
+NZBGET="6789"
+MEDIASERVER_HTTP="8096"
+MEDIASERVER_HTTPS="8920"
+
+# VPN Configuration
+PIA_USERNAME=$PIA_USERNAME       # Replace with your VPN username
+PIA_PASSWORD=$PIA_PASSWORD      # Replace with your VPN password
+VPN_CONTAINER="vpn"
+VPN_IMAGE="qmcgaw/gluetun"
+CONTAINER_NETWORK="vpn_network"
+
+#Jacket
+JACKETT_CONTAINER="jackett"
+JACKETT_IMAGE="linuxserver/jackett"
+
+#Sonarr
+SONARR_CONTAINER="sonarr"
+SONARR_IMAGE="linuxserver/sonarr"
+
+#Radarr
+RADARR_CONTAINER="radarr"
+RADARR_IMAGE="linuxserver/radarr"
+
+
+TRANSMISSION_CONTAINER="transmission"
+TRANSMISSION_IMAGE="linuxserver/transmission"
+
+NZBGET_CONTAINER="nzbget"
+NZBGET_IMAGE="linuxserver/nzbget"
+
+JELLYFIN_CONTAINER="jellyfin"
+JELLYFIN_IMAGE="linuxserver/jellyfin"
+
+WATCHTOWER_CONTAINER="watchtower"
+WATCHTOWER_IMAGE="containrrr/watchtower"
+
+#Track runs
 TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
 tailscale_install_success=0
 PIA_SETUP_SUCCESS=0
@@ -490,17 +518,17 @@ create_docker_compose() {
     cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
-  vpn:
-    image: qmcgaw/gluetun:latest
-    container_name: vpn
+  ${VPN_CONTAINER}:
+    image: ${VPN_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${VPN_CONTAINER}
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - $DOCKER_DIR/gluetun:/gluetun
+      - ${DOCKER_DIR}/${VPN_CONTAINER}:/gluetun
     env_file:
-      - $DOCKER_DIR/gluetun/.env
+      - ${DOCKER_DIR}/${VPN_CONTAINER}/.env
     healthcheck:
       test: curl --fail http://localhost:8000 || exit 1
       interval: 30s
@@ -508,91 +536,112 @@ services:
       retries: 3
     restart: unless-stopped
     ports:
-      - 9117:9117   # Jackett
-      - 8989:8989   # Sonarr
-      - 7878:7878   # Radarr
-      - 9091:9091   # Transmission
-      - 6789:6789   # NZBGet
+      - ${JACKET_PORT}:${JACKET_PORT}
+      - ${SONARR_PORT}:${SONARR_PORT}
+      - ${RADARR_PORT}:${RADARR_PORT}
+      - ${TRANSMISSION_PORT}:${TRANSMISSION_PORT}
+      - ${NZBGET}:${NZBGET}
     networks:
-      - vpn_network
+      - ${CONTAINER_NETWORK}
 
-  jackett:
-    image: linuxserver/jackett:latest
-    container_name: jackett
-    network_mode: "service:vpn"
+  ${JACKETT_CONTAINER}:
+    image: ${JACKETT_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${JACKETT_CONTAINER}
+    network_mode: "service:${VPN_CONTAINER}"
     environment:
-      - TZ=Europe/Berlin
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - /home/holly/docker/jackett:/config
-      - /mnt/downloads:/downloads
+      - ${DOCKER_DIR}/${JACKETT_CONTAINER}:/config
+      - ${DOWNLOADS}:/downloads
     restart: unless-stopped
 
-  sonarr:
-    image: linuxserver/sonarr:latest
-    container_name: sonarr
-    network_mode: "service:vpn"
+  ${SONARR_CONTAINER}:
+    image: ${SONARR_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${SONARR_CONTAINER}
+    network_mode: "service:${VPN_CONTAINER}"
     environment:
-      - TZ=Europe/Berlin
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - /home/holly/docker/sonarr:/config
-      - /mnt/storage/TVShows:/tv
-      - /mnt/downloads:/downloads
+      - ${DOCKER_DIR}/${SONARR_CONTAINER}:/config
+      - ${STORAGE_MOUNT}/${TVSHOWS_FOLDER}:/tv
+      - ${DOWNLOADS}:/downloads
     restart: unless-stopped
 
-  radarr:
-    image: linuxserver/radarr:latest
-    container_name: radarr
-    network_mode: "service:vpn"
+  ${RADARR_CONTAINER}:
+    image: ${RADARR_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${RADARR_CONTAINER}
+    network_mode: "service:${VPN_CONTAINER}"
     environment:
-      - TZ=Europe/Berlin
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - /home/holly/docker/radarr:/config
-      - /mnt/storage/Movies:/movies
-      - /mnt/downloads:/downloads
+      - ${DOCKER_DIR}/${RADARR_CONTAINER}:/config
+      - ${STORAGE_MOUNT}/${MOVIES_FOLDER}:/movies
+      - ${DOWNLOADS}:/downloads
     restart: unless-stopped
 
-  transmission:
-    image: linuxserver/transmission:latest
-    container_name: transmission
-    network_mode: "service:vpn"
+  ${TRANSMISSION_CONTAINER}:
+    image: ${TRANSMISSION_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${TRANSMISSION_CONTAINER}
+    network_mode: "service:${VPN_CONTAINER}"
     environment:
-      - TZ=Europe/Berlin
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - /home/holly/docker/transmission:/config
-      - /mnt/downloads:/downloads
+      - ${DOCKER_DIR}/${TRANSMISSION_CONTAINER}:/config
+      - ${DOWNLOADS}:/downloads
     restart: unless-stopped
 
-  nzbget:
-    image: linuxserver/nzbget:latest
-    container_name: nzbget
-    network_mode: "service:vpn"
+  ${NZBGET_CONTAINER}:
+    image: ${NZBGET_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${NZBGET_CONTAINER}
+    network_mode: "service:${VPN_CONTAINER}"
     environment:
-      - TZ=Europe/Berlin
-      - PUID=1000
-      - PGID=1000
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - /home/holly/docker/nzbget:/config
-      - /mnt/downloads/incomplete:/incomplete
-      - /mnt/downloads/complete:/complete
+      - ${DOCKER_DIR}/${NZBGET_CONTAINER}:/config
+      - ${DOWNLOADS}/incomplete:/incomplete
+      - ${DOWNLOADS}/complete:/complete
     restart: unless-stopped
 
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
+  ${JELLYFIN_CONTAINER}:
+    image: ${JELLYFIN_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${JELLYFIN_CONTAINER}
+    network_mode: bridge
+    environment:
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${DOCKER_DIR}/${JELLYFIN_CONTAINER}:/config
+      - ${STORAGE_MOUNT}:/media
+    ports:
+      - ${MEDIASERVER_HTTP}:${MEDIASERVER_HTTP}
+      - ${MEDIASERVER_HTTPS}:${MEDIASERVER_HTTPS}
+    restart: unless-stopped
+
+  ${WATCHTOWER_CONTAINER}:
+    image: ${WATCHTOWER_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${WATCHTOWER_CONTAINER}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=Europe/London
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_POLL_INTERVAL=3600  # Check for updates every 1 hour
+      - WATCHTOWER_POLL_INTERVAL=3600
     restart: unless-stopped
-    networks:
-      - vpn_network
 
 networks:
-  vpn_network:
+  ${CONTAINER_NETWORK}:
     driver: bridge
+
 EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
     echo "Docker Compose stack deployed successfully."
