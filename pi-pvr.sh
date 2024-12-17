@@ -642,14 +642,27 @@ setup_docker_network() {
 # Deploy Docker Compose stack
 deploy_docker_compose() {
     echo "Deploying Docker Compose stack..."
-    sudo usermod -aG docker "$USER"
-    #newgrp docker
-    if ! docker compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
-        echo "Error: Failed to deploy Docker Compose stack."
+    
+    # Check Docker group membership
+    if ! groups "$USER" | grep -q "docker"; then
+        echo "User '$USER' is not yet in the 'docker' group. Adding to group..."
+        sudo usermod -aG docker "$USER"
+        echo "User '$USER' has been added to the 'docker' group."
+        echo "Please log out and log back in, then restart this script."
         exit 1
     fi
+
+    # Attempt to deploy Docker Compose stack
+    if ! docker compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
+        echo "Error: Failed to deploy Docker Compose stack."
+        echo "This is likely due to recent changes to Docker permissions."
+        echo "Please log out and log back in to refresh your user session, then restart this script."
+        exit 1
+    fi
+
     echo "Docker Compose stack deployed successfully."
 }
+
 
 setup_mount_and_docker_start() {
     echo "Configuring drives to mount at boot and Docker to start afterwards..."
