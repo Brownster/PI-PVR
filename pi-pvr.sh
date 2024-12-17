@@ -583,7 +583,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE="0 3 * * *" # Run daily at 3 AM
+      - WATCHTOWER_SCHEDULE="0 3 * * *"
     restart: unless-stopped
     networks:
       - vpn_network
