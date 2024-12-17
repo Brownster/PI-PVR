@@ -526,7 +526,7 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ${DOCKER_DIR}/${VPN_CONTAINER}:/gluetun
+      - "${DOCKER_DIR}/${VPN_CONTAINER}:/gluetun"
     env_file:
       - ${DOCKER_DIR}/${VPN_CONTAINER}/.env
     healthcheck:
