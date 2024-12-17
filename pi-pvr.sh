@@ -626,8 +626,8 @@ install_dependencies() {
     echo "Installing Docker Engine, Docker Compose, and related packages..."
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    echo "Installing other required dependencies: curl, jq, wireguard-tools, git..."
-    sudo apt-get install -y curl jq wireguard-tools git
+    echo "Installing other required dependencies: curl, jq, git..."
+    sudo apt-get install -y curl jq git
 
     echo "Verifying Docker installation..."
     sudo docker run hello-world
