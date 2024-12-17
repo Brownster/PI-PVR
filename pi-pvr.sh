@@ -55,6 +55,12 @@ create_env_file() {
 PIA_USERNAME=$PIA_USERNAME
 PIA_PASSWORD=$PIA_PASSWORD
 TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
+tailscale_install_success=0
+PIA_SETUP_SUCCESS=0
+SHARE_SETUP_SUCCESS=0
+docker_install_success=0
+pia_vpn_setup_success=0
+docker_compose_success=0
 EOF
         echo ".env file created at $ENV_FILE."
         chmod 600 "$ENV_FILE"
@@ -87,6 +93,11 @@ update_fstab() {
 
 # Install and configure Tailscale
 setup_tailscale() {
+    if [[ "$tailscale_install_success" == "1" ]]; then
+        echo "Tailscale is already installed. Skipping."
+        return
+    fi
+    
     echo "Installing Tailscale..."
     curl -fsSL https://tailscale.com/install.sh | sh
     echo "Tailscale installed."
@@ -102,9 +113,16 @@ setup_tailscale() {
     echo "Tailscale is running."
     echo "Access your server using its Tailscale IP: $(tailscale ip -4)"
     echo "Manage devices at https://login.tailscale.com."
+    # Mark success
+    sed -i 's/tailscale_install_success=0/tailscale_install_success=1/' "$ENV_FILE"
 }
 
 setup_pia_vpn() {
+    if [[ "$PIA_SETUP_SUCCESS" == "1" ]]; then
+        echo "PIA already setup. Skipping."
+        return
+    fi
+    
     echo "Setting up PIA OpenVPN VPN..."
 
     # Source the .env file to load PIA credentials
@@ -135,11 +153,18 @@ SERVER_REGIONS=Netherlands
 EOF
 
     echo "OpenVPN setup complete. Configuration saved to $GLUETUN_DIR/.env."
+    # Mark success
+    sed -i 's/PIA_SETUP_SUCCESS=0/PIA_SETUP_SUCCESS=1/' "$ENV_FILE"
 }
 
 
 #choose smb or nfs (smb if using windows devices to connect)
 choose_sharing_method() {
+    if [[ "$SHARE_SETUP_SUCCESS" == "1" ]]; then
+        echo "Network shares already setup. Skipping."
+        return
+    fi    
+
     echo "Choose your preferred file sharing method:"
     echo "1. Samba (Best for cross-platform: Windows, macOS, Linux)"
     echo "2. NFS (Best for Linux-only environments)"
@@ -315,6 +340,9 @@ EOF
     printf '  \\\\%s\\Movies\n' "$SERVER_IP"
     printf '  \\\\%s\\TVShows\n' "$SERVER_IP"
     printf '  \\\\%s\\Downloads\n' "$SERVER_IP"
+
+    # Mark success
+    sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
 }
 
 setup_usb_and_nfs() {
@@ -438,11 +466,19 @@ setup_usb_and_nfs() {
     echo "NFS Shares available at:"
     echo "  $SERVER_IP:$STORAGE_MOUNT"
     echo "  $SERVER_IP:$DOWNLOAD_MOUNT"
+
+    # Mark success
+    sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
 }
 
 
 # Create Docker Compose file
 create_docker_compose() {
+    if [[ "$docker_compose_success" == "1" ]]; then
+        echo "Docker Compose stack is already deployed. Skipping."
+        return
+    fi    
+    
     echo "Creating Docker Compose file..."
     cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
 version: "3.8"
@@ -550,6 +586,8 @@ networks:
     driver: bridge
 EOF
     echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
+    echo "Docker Compose stack deployed successfully."
+    sed -i 's/docker_compose_success=0/docker_compose_success=1/' "$ENV_FILE"
 }
 
 
