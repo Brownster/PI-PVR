@@ -31,7 +31,7 @@ Installation
 
     Clone this repository:
 
-git clone https://github.com/yourusername/yourrepo.git
+git clone https://github.com/Brownster/PI-PVR.git
 cd yourrepo
 
 Make the setup script executable:
