@@ -1,39 +1,38 @@
 🐳 Raspberry Pi Docker Stack with VPN, Tailscale, and Media Management
 
-This project automates the setup of a Docker-based media server stack on a Raspberry Pi. It includes VPN integration, Tailscale for secure remote access, and popular media management tools. The stack is highly customizable and uses Docker Compose for easy deployment.
+This project automates the setup of a Docker-based media server stack on a Raspberry Pi or any Linux-based system. It includes VPN integration, Tailscale for secure remote access, and popular media management tools. The stack is highly customizable, uses Docker Compose for easy deployment, and supports automatic updates via GitHub.
 Features
 
-    VPN Integration: External traffic is routed through a VPN container for privacy (using gluetun).
-    Tailscale: Enables secure remote access to the Raspberry Pi and containers via Tailscale IP.
+    VPN Integration: Routes external traffic through a secure VPN container (using Gluetun).
+    Tailscale: Enables secure remote access to the server and Docker containers via Tailscale IP.
     Media Management Tools:
         🗂️ Jackett: Indexer proxy for torrent and Usenet sites.
         🎥 Radarr: Movies download manager.
         📺 Sonarr: TV shows download manager.
         🌐 Transmission: Torrent downloader.
         📦 NZBGet: Usenet downloader.
-    Watchtower: Automatic updates for Docker containers, running outside the VPN for unrestricted access.
-    Customizable: Container names and image providers can be easily swapped.
+        📻 Get IPlayer: BBC iPlayer downloader.
+        🎛️ Jellyfin: Media server for streaming.
+    Watchtower: Automatically updates Docker containers running outside the VPN.
+    File Sharing:
+        Samba for Windows/macOS/Linux.
+        NFS for Linux-only environments.
+    Customizable: Easily modify container names, ports, and settings.
+    Automatic Updates: Pull the latest docker-compose.yml from GitHub and redeploy with a single command.
 
 Requirements
 
-    Raspberry Pi running a Linux-based OS, I am using RP5 8GB.
-    Docker and Docker Compose installed.
-    Private Internet Access as VPN Provider.
-    #AirVPN, FastestVPN, Ivpn, Mullvad, NordVPN, Perfect privacy, ProtonVPN, Surfshark and Windscribe will follow.
+    Raspberry Pi or Linux-based system (tested on Raspberry Pi 5 with 8GB RAM).
+    Docker and Docker Compose installed (handled by the script if not already installed).
+    Private Internet Access as the VPN provider (others coming soon: AirVPN, Mullvad, NordVPN, etc.).
     Tailscale account for secure remote access.
-
-
-Create tailscale auth key
-![image](https://github.com/user-attachments/assets/e4d496f7-0368-4870-88b7-c6222378be4e)
-
-
 
 Installation
 
     Clone this repository:
 
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/yourusername/yourrepo.git
+cd yourrepo
 
 Make the setup script executable:
 
@@ -41,16 +40,27 @@ chmod +x setup.sh
 
 Run the setup script:
 
-./setup.sh
+    ./setup.sh
 
-This script will:
+    Follow the on-screen prompts to configure the environment, VPN, and file sharing.
 
-    Install dependencies (Docker, Docker Compose, Tailscale).
-    Configure Tailscale.
-    Set up a VPN container network.
-    Deploy the media stack using Docker Compose.
+Usage
+Debug Mode
 
-Update the .env file with your credentials:
+Run with --debug to see detailed command outputs:
+
+./setup.sh --debug
+
+Update Docker Compose Stack
+
+Automatically fetch the latest docker-compose.yml from GitHub and redeploy:
+
+./setup.sh --update
+
+Configuration
+Environment Variables
+
+The script creates an .env file for managing sensitive data. Update this file as needed:
 
 nano ~/docker/.env
 
@@ -59,109 +69,84 @@ Example .env file:
 PIA_USERNAME=your_pia_username
 PIA_PASSWORD=your_pia_password
 TAILSCALE_AUTH_KEY=your_tailscale_auth_key
+TIMEZONE=Europe/London
+MOVIES_FOLDER="Movies"
+TVSHOWS_FOLDER="TVShows"
+DOWNLOADS="/mnt/storage/downloads"
 
-Start the stack:
+File Sharing
 
-    docker-compose --env-file ~/docker/.env -f ~/docker/docker-compose.yml up -d
+The script supports:
 
-Accessing the Services
+    Samba: Ideal for cross-platform file sharing.
+    NFS: Recommended for Linux-only environments.
+
+Configure the method during setup or edit the .env file.
+Updating from GitHub
+
+The script supports pulling updates directly from a GitHub repository. Ensure DOCKER_COMPOSE_URL is set to your hosted docker-compose.yml file:
+
+DOCKER_COMPOSE_URL=https://raw.githubusercontent.com/yourusername/yourrepo/main/docker-compose.yml
+
+Services and Ports
 Service	Default Port	URL
-Jackett	9117	http://<Pi IP>:9117
-Sonarr	8989	http://<Pi IP>:8989
-Radarr	7878	http://<Pi IP>:7878
-Transmission	9091	http://<Pi IP>:9091
-NZBGet	6789	http://<Pi IP>:6789
+VPN	N/A	N/A
+Jackett	9117	http://<IP>:9117
+Sonarr	8989	http://<IP>:8989
+Radarr	7878	http://<IP>:7878
+Transmission	9091	http://<IP>:9091
+NZBGet	6789	http://<IP>:6789
+Get IPlayer	1935	http://<IP>:1935
+Jellyfin	8096	http://<IP>:8096
+Watchtower	N/A	(No Web UI)
 
-You can also access these services via your Tailscale IP:
+Generated URLs are saved to:
 
-http://<Tailscale IP>:<Port>
+~/services_urls.txt
 
 How It Works
 
-    VPN Routing:
-        Containers (e.g., jackett, radarr, sonarr, etc.) are routed through the VPN container (gluetun) for privacy.
-        The VPN container ensures external traffic (e.g., torrents, APIs) uses the VPN’s secure connection.
-        Fail-safe: If the VPN drops, traffic from dependent containers is blocked.
+    VPN Routing: All media applications route traffic through the VPN container. If the VPN disconnects, traffic is blocked for privacy.
+    Tailscale: Provides secure access to all services, bypassing the VPN when needed.
+    Watchtower: Updates Docker containers outside the VPN network for unrestricted registry access.
 
-    Tailscale:
-        Provides remote access to the Raspberry Pi and all exposed container ports.
-        Bypasses the VPN, enabling efficient and direct access over Tailscale’s secure mesh network.
-
-    Watchtower:
-        Runs outside the VPN (network_mode: bridge) to ensure it has unrestricted access to Docker registries.
-        Automatically updates containers in the stack when new images are available.
-
-Customizing the Stack
-
-You can customize the container names and images in the setup.sh script.
-
-To use a different image, update the *_IMAGE variables and re-run the setup.
 Testing
 
-    Local Access:
-        Open a browser and navigate to http://<Pi IP>:<Port>.
+    Local Access: Open http://<local-IP>:<port> in a browser.
 
-    Tailscale Access:
-        Use your Tailscale IP instead of the Raspberry Pi's local IP.
+    Tailscale Access: Replace <local-IP> with your Tailscale IP.
 
-    VPN Routing:
-        Verify containers are routing traffic through the VPN:
+    VPN Routing: Verify traffic routes through the VPN:
 
-    docker exec -it transmission curl ifconfig.me
+docker exec -it transmission curl ifconfig.me
 
-    The output should show the VPN's external IP.
+Logs: Check Watchtower logs for updates:
 
-Watchtower Logs:
-
-    Check Watchtower for updates:
-
-        docker logs watchtower
+    docker logs watchtower
 
 Troubleshooting
-VPN Connection Issues
 
-    Ensure your VPN credentials are correct in the .env file.
-    Check the logs of the vpn container:
+    VPN Issues: Ensure PIA credentials are correct in .env. Check VPN logs:
 
-    docker logs vpn
+docker logs vpn
 
-Tailscale Authentication
-
-    If Tailscale fails to start, authenticate manually:
+Tailscale Authentication:
 
     sudo tailscale up
 
-Container Access
+Contributing
 
-    If you can’t access a container, ensure the stack is running:
-
-    docker ps
-
+Contributions are welcome! Open an issue or submit a pull request to enhance the project.
 License
 
 This project is licensed under the MIT License.
-Contributing
+Acknowledgements
 
-Feel free to submit issues or pull requests to improve this stack. Contributions are welcome!
-Acknowledgments to the below communities:
+Special thanks to:
 
     Docker
+    Gluetun VPN
     LinuxServer.io
-    Gluetun
-    Tailscale
-    Watchtower
-    Radarr
     Sonarr
-    Portainer
-    Wireguard
-    Transmission
-    NZBget
-
-References
-
-    [PIA WireGuard](https://github.com/pia-foss/manual-connections)
-    [WatchTower](https://github.com/containrrr/watchtower)
-    [Glueton](https://github.com/qdm12/gluetun)
-    [Radarr](https://wiki.servarr.com/radarr)
-    [Sonarr](https://wiki.servarr.com/sonarr)
-    [TailScale](https://tailscale.com/kb/1017/install)
+    Radarr
+    Tailscale
