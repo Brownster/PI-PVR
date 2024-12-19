@@ -920,8 +920,63 @@ EOF
 }
 
 
+# Function to pull the latest docker-compose.yml
+update_compose_file() {
+    echo "Checking for updates to docker-compose.yml..."
+    TEMP_COMPOSE_FILE=$(mktemp)
+
+    # URL for your GitHub-hosted docker-compose.yml
+    DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/yourusername/yourrepo/main/docker-compose.yml"
+
+    # Download the latest docker-compose.yml from GitHub
+    curl -fsSL "$DOCKER_COMPOSE_URL" -o "$TEMP_COMPOSE_FILE"
+
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to fetch the latest docker-compose.yml from GitHub."
+        rm -f "$TEMP_COMPOSE_FILE"
+        exit 1
+    fi
+
+    # Compare checksums of the current and new files
+    LOCAL_COMPOSE_FILE="$DOCKER_DIR/docker-compose.yml"
+    LOCAL_CHECKSUM=$(md5sum "$LOCAL_COMPOSE_FILE" 2>/dev/null | awk '{print $1}')
+    REMOTE_CHECKSUM=$(md5sum "$TEMP_COMPOSE_FILE" | awk '{print $1}')
+
+    if [[ "$LOCAL_CHECKSUM" == "$REMOTE_CHECKSUM" ]]; then
+        echo "No updates found for docker-compose.yml."
+        rm -f "$TEMP_COMPOSE_FILE"
+    else
+        echo "Update found. Applying changes..."
+        mv "$TEMP_COMPOSE_FILE" "$LOCAL_COMPOSE_FILE"
+        echo "Redeploying Docker stack..."
+        docker compose -f "$LOCAL_COMPOSE_FILE" pull
+        docker compose -f "$LOCAL_COMPOSE_FILE" up -d
+        echo "Docker stack updated successfully."
+    fi
+}
+
+
+
+
 # Main setup function
 main() {
+    # Parse command-line arguments
+    for arg in "$@"; do
+        case $arg in
+            --update)
+                update_compose_file
+                exit 0
+                ;;
+            --debug)
+                DEBUG=true
+                ;;
+            *)
+                echo "Unknown option: $arg"
+                echo "Usage: $0 [--update] [--debug]"
+                exit 1
+                ;;
+        esac
+    done
     echo "Starting setup..."
     create_env_file
     # Source the .env file after creating it
