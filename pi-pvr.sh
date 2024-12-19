@@ -36,6 +36,7 @@ create_env_file() {
         cat > "$ENV_FILE" <<EOF
 #General Docker
 DOCKER_DIR="$HOME/docker"
+DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/docker-compose.yml"
 
 # Docker Configuration (Optional)
 TIMEZONE=Europe/London
