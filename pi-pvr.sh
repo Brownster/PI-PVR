@@ -61,12 +61,13 @@ SONARR_PORT="8989"
 RADARR_PORT="7878"
 TRANSMISSION_PORT="9091"
 NZBGET="6789"
+GET_IPLAYER_PORT="1935"
 MEDIASERVER_HTTP="8096"
 MEDIASERVER_HTTPS="8920"
 
 # VPN Configuration
-PIA_USERNAME=$PIA_USERNAME       # Replace with your VPN username
-PIA_PASSWORD=$PIA_PASSWORD      # Replace with your VPN password
+PIA_USERNAME=$PIA_USERNAME
+PIA_PASSWORD=$PIA_PASSWORD
 VPN_CONTAINER="vpn"
 VPN_IMAGE="qmcgaw/gluetun"
 CONTAINER_NETWORK="vpn_network"
@@ -83,16 +84,24 @@ SONARR_IMAGE="linuxserver/sonarr"
 RADARR_CONTAINER="radarr"
 RADARR_IMAGE="linuxserver/radarr"
 
-
+#Transmission
 TRANSMISSION_CONTAINER="transmission"
 TRANSMISSION_IMAGE="linuxserver/transmission"
-
+#NZBGet
 NZBGET_CONTAINER="nzbget"
 NZBGET_IMAGE="linuxserver/nzbget"
 
+#Get Iplayer
+GET_IPLAYER="get_iplayer"
+GET_IPLAYER_IMAGE="ghcr.io/thespad/get_iplayer
+INCLUDERADIO="true"
+ENABLEIMPORT="true"
+
+#JellyFin
 JELLYFIN_CONTAINER="jellyfin"
 JELLYFIN_IMAGE="linuxserver/jellyfin"
 
+#WatchTower
 WATCHTOWER_CONTAINER="watchtower"
 WATCHTOWER_IMAGE="containrrr/watchtower"
 
@@ -612,6 +621,22 @@ services:
       - ${DOCKER_DIR}/${NZBGET_CONTAINER}:/config
       - ${DOWNLOADS}/incomplete:/incomplete
       - ${DOWNLOADS}/complete:/complete
+    restart: unless-stopped
+
+  ${GET_IPLAYER}:
+    image: ${GET_IPLAYER_IMAGE}:${IMAGE_RELEASE}
+    container_name: ${GET_IPLAYER}
+    environment:
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - INCLUDERADIO=${INCLUDERADIO}
+      - ENABLEIMPORT=${ENABLEIMPORT}
+    volumes:
+      - ${DOCKER_DIR}/${GET_IPLAYER}/config:/config
+      - ${DOWNLOADS}/complete:/downloads
+    ports:
+      - ${GET_IPLAYER_PORT}:${GET_IPLAYER_PORT}
     restart: unless-stopped
 
   ${JELLYFIN_CONTAINER}:
