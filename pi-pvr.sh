@@ -114,6 +114,9 @@ SHARE_SETUP_SUCCESS=0
 docker_install_success=0
 pia_vpn_setup_success=0
 docker_compose_success=0
+CREATE_CONFIG_SUCCESS=0
+INSTALL_DEPENDANCIES_SUCCESS=0
+DOCKER_NETWORK_SUCCESS=0
 EOF
         echo ".env file created at $ENV_FILE."
         chmod 600 "$ENV_FILE"
@@ -125,6 +128,10 @@ EOF
 
 #GET_IPLAYER CONFIG CREATION
 create_config_json() {
+    if [[ "$CREATE_CONFIG_SUCCESS" == "1" ]]; then
+        echo "IPlayer Get config already setup. Skipping."
+        return
+    fi   
     echo "Creating config.json for SonarrAutoImport..."
 
     # Define paths
@@ -180,6 +187,7 @@ EOF
 
     echo "config.json created at $CONFIG_FILE."
     echo "Please update the API keys in the config file before running the container."
+    sed -i 's/CREATE_CONFIG_SUCCESS=0/CREATE_CONFIG_SUCCESS==1/' "$ENV_FILE"
 }
 
 
@@ -741,12 +749,19 @@ EOF
 }
 
 
+
+# Install required dependencies
+install_dependencies() {
+    if [[ "$INSTALL_DEPENDANCIES_SUCCESS" == "1" ]]; then
+        echo "Docker Compose stack is already deployed. Skipping."
+        return
+    fi
+
     # Install required dependencies, including git
     echo "Installing dependencies..."
     sudo apt update
     sudo apt install -y curl jq git
-# Install required dependencies
-install_dependencies() {
+
     echo "Uninstalling any conflicting Docker packages..."
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
         sudo apt-get remove -y "$pkg"
@@ -774,11 +789,17 @@ install_dependencies() {
     sudo docker run hello-world
 
     echo "All dependencies installed successfully."
+
+    sed -i 's/INSTALL_DEPENDANCIES_SUCCESS=0/INSTALL_DEPENDANCIES_SUCCESS=1/' "$ENV_FILE"
 }
 
 
 # Set up Docker network for VPN containers
 setup_docker_network() {
+    if [[ "$DOCKER_NETWORK_SUCCESS" == "1" ]]; then
+        echo "Docker Network is already deployed. Skipping."
+        return
+    fi
     echo "Creating Docker network for VPN..."
     if ! systemctl is-active --quiet docker; then
         echo "Docker is not running. Starting Docker..."
@@ -790,6 +811,7 @@ setup_docker_network() {
     else
         sudo docker network create "$CONTAINER_NETWORK"
         echo "Docker network '$CONTAINER_NETWORK' created."
+        sed -i 's/DOCKER_NETWORK_SUCCESS=0/DOCKER_NETWORK_SUCCESS=1/' "$ENV_FILE"
     fi
 }
 
@@ -910,6 +932,7 @@ main() {
     install_dependencies
     setup_pia_vpn
     create_docker_compose
+    create_config_json
     choose_sharing_method
     setup_docker_network
     deploy_docker_compose
@@ -918,21 +941,28 @@ main() {
     echo "Setup Summary:"
     echo "Docker services are running:"
 
-    # Define a list of apps and their ports
+    # Define the base URL using the server IP
+    BASE_URL="http://${SERVER_IP}"
+
+    # Define a list of services with their ports and URLs
     declare -A SERVICES_AND_PORTS=(
-        ["VPN"]="--"
-        ["Jackett"]="9117"
-        ["Sonarr"]="8989"
-        ["Radarr"]="7878"
-        ["Transmission"]="9091"
-        ["NZBGet"]="6789"
-        ["Watchtower"]="Auto-Updater"
+        ["VPN"]="${BASE_URL}"
+        ["Jackett"]="${BASE_URL}:${JACKET_PORT}"
+        ["Sonarr"]="${BASE_URL}:${SONARR_PORT}"
+        ["Radarr"]="${BASE_URL}:${RADARR_PORT}"
+        ["Transmission"]="${BASE_URL}:${TRANSMISSION_PORT}"
+        ["NZBGet"]="${BASE_URL}:${NZBGET_PORT}"
+        ["Get_IPlayer"]="${BASE_URL}:${GET_IPLAYER_PORT}"
+        ["JellyFin"]="${BASE_URL}:${JELLYFIN_PORT}"
+        ["Watchtower"]="(Auto-Updater - no web UI)"
     )
 
-    # Loop through the services and display their ports
+    # Display services and clickable URLs
+    echo "Services and their URLs:"
     for SERVICE in "${!SERVICES_AND_PORTS[@]}"; do
-        echo "  - $SERVICE (Port: ${SERVICES_AND_PORTS[$SERVICE]})"
+        echo "  - $SERVICE: ${SERVICES_AND_PORTS[$SERVICE]}"
     done
+
 
     echo "File shares available:"
     if [[ "$SHARE_METHOD" == "1" ]]; then
@@ -945,6 +975,14 @@ main() {
         echo "  NFS Shares:"
         echo "    $SERVER_IP:$STORAGE_DIR"
         echo "    $SERVER_IP:$DOWNLOAD_DIR"
+
+    for SERVICE in "${!SERVICES_AND_PORTS[@]}"; do
+        echo "$SERVICE: ${SERVICES_AND_PORTS[$SERVICE]}" >> "$HOME/services_urls.txt"
+    done
+    echo "URLs saved to $HOME/services_urls.txt"
+
+
+
     fi
 
 }
