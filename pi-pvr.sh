@@ -927,7 +927,7 @@ update_compose_file() {
     TEMP_COMPOSE_FILE=$(mktemp)
 
     # URL for your GitHub-hosted docker-compose.yml
-    DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/yourusername/yourrepo/main/docker-compose.yml"
+    DOCKER_COMPOSE_URL="${DOCKER_COMPOSE_URL}"
 
     # Download the latest docker-compose.yml from GitHub
     curl -fsSL "$DOCKER_COMPOSE_URL" -o "$TEMP_COMPOSE_FILE"
