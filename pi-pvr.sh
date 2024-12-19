@@ -79,10 +79,12 @@ JACKETT_IMAGE="linuxserver/jackett"
 #Sonarr
 SONARR_CONTAINER="sonarr"
 SONARR_IMAGE="linuxserver/sonarr"
+SONARR_API_KEY="your_sonarr_api_key"   # Replace with actual API key after install
 
 #Radarr
 RADARR_CONTAINER="radarr"
 RADARR_IMAGE="linuxserver/radarr"
+RADARR_API_KEY="your_radarr_api_key"   # Replace with actual API key after install
 
 #Transmission
 TRANSMISSION_CONTAINER="transmission"
@@ -119,6 +121,68 @@ EOF
         echo ".env file already exists. Update credentials if necessary."
     fi
 }
+
+
+#GET_IPLAYER CONFIG CREATION
+create_config_json() {
+    echo "Creating config.json for SonarrAutoImport..."
+
+    # Define paths
+    CONFIG_DIR="$DOCKER_DIR/get_iplayer/config"
+    CONFIG_FILE="$CONFIG_DIR/config.json"
+
+    # Ensure the directory exists
+    mkdir -p "$CONFIG_DIR"
+
+    # Generate the config.json file
+    cat > "$CONFIG_FILE" <<EOF
+{
+  "radarr": {
+    "url" : "http://127.0.0.1:${RADARR_PORT}",
+    "apiKey" : "${RADARR_API_KEY}",
+    "mappingPath" : "/downloads/",
+    "downloadsFolder" : "${DOWNLOADS}/complete",
+    "importMode" : "Move",
+    "timeoutSecs" : "5"
+  },
+  "sonarr": {
+    "url" : "http://127.0.0.1:${SONARR_PORT}",
+    "apiKey" : "${SONARR_API_KEY}",
+    "mappingPath" : "/downloads/",
+    "downloadsFolder" : "${DOWNLOADS}/complete",
+    "importMode" : "Copy",
+    "timeoutSecs" : "5",
+    "trimFolders" : "true",
+    "transforms" : [
+      {
+        "search" : "Escape_to_the_Country_Series_(\\d+)_-_S(\\d+)E(\\d+)_-_.+\\.mp4",
+        "replace" : "Escape to the Country S\$2E\$3.mp4"
+      },
+      {
+        "search" : "Escape_to_the_Country_Series_(\\d+)_Extended_Versions_-_S(\\d+)E(\\d+)_-_.+\\.mp4",
+        "replace" : "Escape to the Country Extended S\$2E\$3.mp4"
+      },
+      {
+        "search" : "Escape_to_the_Country_Series_(\\d+)_-_Episode_(\\d+)\\.mp4",
+        "replace" : "Escape to the Country S\$1E\$2.mp4"
+      },
+      {
+        "search" : "Escape_to_the_Country_(\\d{4})_Season_(\\d+)_-_Episode_(\\d+)\\.mp4",
+        "replace" : "Escape to the Country S\$2E\$3.mp4"
+      }
+    ]
+  }
+}
+EOF
+
+    # Update permissions
+    chmod 600 "$CONFIG_FILE"
+
+    echo "config.json created at $CONFIG_FILE."
+    echo "Please update the API keys in the config file before running the container."
+}
+
+
 
 # Function to update /etc/fstab with the new mount point
 update_fstab() {
