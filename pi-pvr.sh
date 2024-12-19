@@ -626,6 +626,7 @@ services:
   ${GET_IPLAYER}:
     image: ${GET_IPLAYER_IMAGE}:${IMAGE_RELEASE}
     container_name: ${GET_IPLAYER}
+    network_mode: bridge
     environment:
       - TZ=${TIMEZONE}
       - PUID=${PUID}
