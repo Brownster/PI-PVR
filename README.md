@@ -11,7 +11,7 @@ Features
         📺 Sonarr: TV shows download manager.
         🌐 Transmission: Torrent downloader.
         📦 NZBGet: Usenet downloader.
-        📻 Get IPlayer: BBC iPlayer downloader.
+        📻 Get IPlayer: BBC iPlayer downloader with SonarrAutoImport enabled.
         🎛️ Jellyfin: Media server for streaming.
     Watchtower: Automatically updates Docker containers running outside the VPN.
     File Sharing:
