@@ -495,8 +495,8 @@ setup_usb_and_nfs() {
     fi
 
     # Define mount points
-    STORAGE_MOUNT="/mnt/storage"
-    DOWNLOAD_MOUNT="/mnt/downloads"
+    STORAGE_MOUNT="${STRORAGE_MOUNT}"
+    DOWNLOAD_MOUNT="${DOWNLOADS}"
 
     # Mount storage drive
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
