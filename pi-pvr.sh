@@ -864,8 +864,8 @@ setup_mount_and_docker_start() {
     STORAGE_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$STORAGE_MOUNT" | awk '{print $2}')")
     #DOWNLOAD_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}')")
 
-    if [[ -z "$STORAGE_UUID" || -z "$DOWNLOAD_UUID" ]]; then
-        echo "Error: Could not determine UUIDs for storage or download drives."
+    if [[ -z "$STORAGE_UUID" ]]; then
+        echo "Error: Could not determine UUID for the storage mount point: $STORAGE_MOUNT."
         exit 1
     fi
 
