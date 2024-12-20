@@ -907,12 +907,11 @@ EOF
 #!/bin/bash
 
 STORAGE_MOUNT="/mnt/storage"
-DOWNLOAD_MOUNT="/mnt/downloads"
 DOCKER_COMPOSE_FILE="$HOME/docker/docker-compose.yml"
 
 # Wait until mounts are ready
-until mountpoint -q "$STORAGE_MOUNT" && mountpoint -q "$DOWNLOAD_MOUNT"; do
-    echo "Waiting for drives to be mounted..."
+until mountpoint -q "$STORAGE_MOUNT"; do
+    echo "Waiting for drive to be mounted..."
     sleep 5
 done
 
