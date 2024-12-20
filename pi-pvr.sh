@@ -820,7 +820,7 @@ setup_docker_network() {
 # Deploy Docker Compose stack
 deploy_docker_compose() {
     echo "Deploying Docker Compose stack..."
-    
+
     # Check Docker group membership
     if ! groups "$USER" | grep -q "docker"; then
         echo "User '$USER' is not yet in the 'docker' group. Adding to group..."
@@ -830,8 +830,13 @@ deploy_docker_compose() {
         exit 1
     fi
 
-    # Attempt to deploy Docker Compose stack
-    if ! docker compose --env-file "$ENV_FILE" -f "$DOCKER_DIR/docker-compose.yml" up -d; then
+    # Temporarily disable get_iplayer in docker-compose.yml
+    local compose_file="$DOCKER_DIR/docker-compose.yml"
+    echo "Disabling get_iplayer container for the first run..."
+    sed -i '/get_iplayer:/,/restart: unless-stopped/ s/^/#/' "$compose_file"
+
+    # Attempt to deploy the Docker Compose stack
+    if ! docker compose --env-file "$ENV_FILE" -f "$compose_file" up -d; then
         echo "Error: Failed to deploy Docker Compose stack."
         echo "This is likely due to recent changes to Docker permissions."
         echo "Please log out and log back in to refresh your user session, then restart this script."
@@ -839,7 +844,13 @@ deploy_docker_compose() {
     fi
 
     echo "Docker Compose stack deployed successfully."
+    echo "Please retrieve the API keys for Radarr and Sonarr and update the .env file."
+
+    # Notify user to uncomment get_iplayer and restart the stack
+    echo "To enable get_iplayer, redeploy the stack after adding api keys:"
+    echo "  sed -i '/#get_iplayer:/,/restart: unless-stopped/ s/^#//' \"$compose_file\""
 }
+
 
 
 setup_mount_and_docker_start() {
