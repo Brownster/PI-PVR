@@ -366,7 +366,7 @@ esac
     # Define mount points
     STORAGE_MOUNT="/mnt/storage"
     if [[ -z "$DOWNLOAD_MOUNT" ]]; then
-        DOWNLOAD_MOUNT="/mnt/downloads"
+        DOWNLOAD_MOUNT="${STORAGE_MOUNT}/downloads"
     fi
 
     # Mount storage drive
@@ -385,24 +385,9 @@ esac
     # Update fstab for storage drive
     update_fstab "$STORAGE_MOUNT" "$STORAGE_DRIVE"
 
-    # Mount download drive or validate path
-    if [[ "$DOWNLOAD_CHOICE" == "2" ]]; then
-        echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
-        sudo mkdir -p "$DOWNLOAD_MOUNT"
-        if [[ "$DOWNLOAD_FS" == "ntfs" ]]; then
-            sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
-        else
-            sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
-        fi
-        if [[ $? -ne 0 ]]; then
-            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
-            exit 1
-        fi
-        update_fstab "$DOWNLOAD_MOUNT" "$DOWNLOAD_DRIVE"
-    else
-        # Verify the explicit path exists
-        sudo mkdir -p "$DOWNLOAD_MOUNT"
-    fi
+    # Verify the explicit path exists
+    sudo mkdir -p "$DOWNLOAD_MOUNT"
+
 
     # Detect and create media directories
     MOVIES_DIR="$STORAGE_MOUNT/Movies"
