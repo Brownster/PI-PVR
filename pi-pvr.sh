@@ -727,7 +727,7 @@ services:
       - /sys:/host_sys:ro
       - /opt/vc:/opt/vc:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/storage=/mnt/storage
+      - /mnt/storage:/mnt/storage:ro
 
     restart: unless-stopped
 
