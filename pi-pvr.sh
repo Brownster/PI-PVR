@@ -858,11 +858,11 @@ setup_mount_and_docker_start() {
 
     # Variables for mount points and device paths
     STORAGE_MOUNT="/mnt/storage"
-    DOWNLOAD_MOUNT="/mnt/downloads"
+    #DOWNLOAD_MOUNT="/mnt/downloads"
 
     # Get device UUIDs for fstab
     STORAGE_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$STORAGE_MOUNT" | awk '{print $2}')")
-    DOWNLOAD_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}')")
+    #DOWNLOAD_UUID=$(blkid -s UUID -o value "$(findmnt -nT "$DOWNLOAD_MOUNT" | awk '{print $2}')")
 
     if [[ -z "$STORAGE_UUID" || -z "$DOWNLOAD_UUID" ]]; then
         echo "Error: Could not determine UUIDs for storage or download drives."
@@ -873,7 +873,7 @@ setup_mount_and_docker_start() {
     echo "Updating /etc/fstab..."
     sudo bash -c "cat >> /etc/fstab" <<EOF
 UUID=$STORAGE_UUID $STORAGE_MOUNT ext4 defaults 0 2
-UUID=$DOWNLOAD_UUID $DOWNLOAD_MOUNT ext4 defaults 0 2
+#UUID=$DOWNLOAD_UUID $DOWNLOAD_MOUNT ext4 defaults 0 2
 EOF
 
     # Test the fstab changes
