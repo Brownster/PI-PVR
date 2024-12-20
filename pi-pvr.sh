@@ -718,13 +718,14 @@ services:
     image: brownster/pi-health:latest
     container_name: pi-health-dashboard
     environment:
-      - DISK_PATH=${STORAGE_MOUNT}
       - TZ=${TIMEZONE}
+      - DISK_PATH=${STORAGE_MOUNT}
     ports:
       - 8080:8080
     volumes:
       - /proc:/host_proc:ro
       - /sys:/host_sys:ro
+      - /opt/vc:/opt/vc:ro
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
