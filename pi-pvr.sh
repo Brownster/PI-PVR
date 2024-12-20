@@ -718,6 +718,7 @@ services:
     image: brownster/pi-health:latest
     container_name: pi-health-dashboard
     environment:
+      - DISK_PATH=${STORAGE_MOUNT}
       - TZ=${TIMEZONE}
     ports:
       - 8080:8080
