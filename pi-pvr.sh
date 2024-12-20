@@ -873,7 +873,6 @@ setup_mount_and_docker_start() {
     echo "Updating /etc/fstab..."
     sudo bash -c "cat >> /etc/fstab" <<EOF
 UUID=$STORAGE_UUID $STORAGE_MOUNT ext4 defaults 0 2
-#UUID=$DOWNLOAD_UUID $DOWNLOAD_MOUNT ext4 defaults 0 2
 EOF
 
     # Test the fstab changes
