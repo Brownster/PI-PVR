@@ -96,7 +96,7 @@ NZBGET_IMAGE="linuxserver/nzbget"
 
 #Get Iplayer
 GET_IPLAYER="get_iplayer"
-GET_IPLAYER_IMAGE="ghcr.io/thespad/get_iplayer
+GET_IPLAYER_IMAGE="ghcr.io/thespad/get_iplayer"
 INCLUDERADIO="true"
 ENABLEIMPORT="true"
 
