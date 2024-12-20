@@ -714,6 +714,19 @@ services:
       - ${MEDIASERVER_HTTPS}:${MEDIASERVER_HTTPS}
     restart: unless-stopped
 
+  pi-health-dashboard:
+    image: brownster/pi-health:latest
+    container_name: pi-health-dashboard
+    environment:
+      - TZ=${TIMEZONE}
+    ports:
+      - 8080:8080
+    volumes:
+      - /proc:/host_proc:ro
+      - /sys:/host_sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
   ${WATCHTOWER_CONTAINER}:
     image: ${WATCHTOWER_IMAGE}:${IMAGE_RELEASE}
     container_name: ${WATCHTOWER_CONTAINER}
