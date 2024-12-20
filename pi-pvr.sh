@@ -719,15 +719,18 @@ services:
     container_name: pi-health-dashboard
     environment:
       - TZ=${TIMEZONE}
-      - DISK_PATH=${STORAGE_MOUNT}
+      - DISK_PATH=/mnt/storage
+      - DOCKER_COMPOSE_PATH=/config/docker-compose.yml
+      - ENV_FILE_PATH=/config/.env
+      - BACKUP_DIR=/config/backups
     ports:
       - 8080:8080
     volumes:
       - /proc:/host_proc:ro
       - /sys:/host_sys:ro
-      - /opt/vc:/opt/vc:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - /mnt/storage:/mnt/storage:ro
+      - ./config:/config
+      - /mnt/storage:/mnt/storage
     restart: unless-stopped
 
   ${WATCHTOWER_CONTAINER}:
