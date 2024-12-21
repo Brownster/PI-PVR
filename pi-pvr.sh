@@ -667,6 +667,25 @@ services:
       - ${DOWNLOADS}:/downloads
     restart: unless-stopped
 
+  rdtclient:
+    image: rogerfar/rdtclient
+    container_name: rdtclient
+    network_mode: "service:${VPN_CONTAINER}"
+    environment:
+      - TZ=${TIMEZONE}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${DOCKER_DIR}/rdtclient:/data/db
+      - ${DOWNLOADS}:/data/downloads
+    logging:
+       driver: json-file
+       options:
+          max-size: 10m
+    ports:
+      - 6500:6500
+    restart: unless-stopped
+
   ${NZBGET_CONTAINER}:
     image: ${NZBGET_IMAGE}:${IMAGE_RELEASE}
     container_name: ${NZBGET_CONTAINER}
