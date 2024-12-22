@@ -637,7 +637,7 @@ services:
     volumes:
       - ${DOCKER_DIR}/${SONARR_CONTAINER}:/config
       - ${STORAGE_MOUNT}/${TVSHOWS_FOLDER}:/tv
-      - ${DOWNLOADS}:/downloads
+      - ${DOWNLOADS}:/downloads/completed/
     restart: unless-stopped
 
   ${RADARR_CONTAINER}:
@@ -651,7 +651,7 @@ services:
     volumes:
       - ${DOCKER_DIR}/${RADARR_CONTAINER}:/config
       - ${STORAGE_MOUNT}/${MOVIES_FOLDER}:/movies
-      - ${DOWNLOADS}:/downloads
+      - ${DOWNLOADS}:/downloads/completed/
     restart: unless-stopped
 
   ${TRANSMISSION_CONTAINER}:
@@ -664,7 +664,7 @@ services:
       - PGID=${PGID}
     volumes:
       - ${DOCKER_DIR}/${TRANSMISSION_CONTAINER}:/config
-      - ${DOWNLOADS}:/downloads
+      - ${DOWNLOADS}:/downloads/completed/
     restart: unless-stopped
 
   rdtclient:
@@ -677,7 +677,7 @@ services:
       - PGID=${PGID}
     volumes:
       - ${DOCKER_DIR}/rdtclient:/data/db
-      - ${DOWNLOADS}:/data/downloads
+      - ${DOWNLOADS}:/downloads/completed/
     logging:
        driver: json-file
        options:
@@ -697,7 +697,7 @@ services:
     volumes:
       - ${DOCKER_DIR}/${NZBGET_CONTAINER}:/config
       - ${DOWNLOADS}/incomplete:/downloads/incomplete
-      - ${DOWNLOADS}/complete:/downloads/complete
+      - ${DOWNLOADS}/complete:/downloads/completed/
     restart: unless-stopped
 
   ${GET_IPLAYER}:
@@ -712,7 +712,7 @@ services:
       - ENABLEIMPORT=${ENABLEIMPORT}
     volumes:
       - ${DOCKER_DIR}/${GET_IPLAYER}/config:/config
-      - ${DOWNLOADS}/complete:/downloads
+      - ${DOWNLOADS}/complete:/downloads/completed/
     ports:
       - ${GET_IPLAYER_PORT}:${GET_IPLAYER_PORT}
     restart: unless-stopped
