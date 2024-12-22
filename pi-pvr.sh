@@ -696,8 +696,8 @@ services:
       - PGID=${PGID}
     volumes:
       - ${DOCKER_DIR}/${NZBGET_CONTAINER}:/config
-      - ${DOWNLOADS}/incomplete:/incomplete
-      - ${DOWNLOADS}/complete:/complete
+      - ${DOWNLOADS}/incomplete:/downloads/incomplete
+      - ${DOWNLOADS}/complete:/downloads/complete
     restart: unless-stopped
 
   ${GET_IPLAYER}:
