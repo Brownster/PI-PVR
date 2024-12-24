@@ -733,24 +733,26 @@ services:
       - ${MEDIASERVER_HTTPS}:${MEDIASERVER_HTTPS}
     restart: unless-stopped
 
-  pi-health-dashboard:
-    image: brownster/pi-health:latest
-    container_name: pi-health-dashboard
-    environment:
-      - TZ=${TIMEZONE}
-      - DISK_PATH=/mnt/storage
-      - DOCKER_COMPOSE_PATH=/config/docker-compose.yml
-      - ENV_FILE_PATH=/config/.env
-      - BACKUP_DIR=/config/backups
-    ports:
-      - 8080:8080
-    volumes:
-      - /proc:/host_proc:ro
-      - /sys:/host_sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./config:/config
-      - /mnt/storage:/mnt/storage
-    restart: unless-stopped
+pi-health-dashboard:
+  image: brownster/pi-health:latest
+  container_name: pi-health-dashboard
+  environment:
+    - TZ=${TIMEZONE}
+    - DISK_PATH=/mnt/storage
+    - DISK_PATH_2=/mnt/downloads
+    - DOCKER_COMPOSE_PATH=/config/docker-compose.yml
+    - ENV_FILE_PATH=/config/.env
+    - BACKUP_DIR=/config/backups
+  ports:
+    - 8080:8080
+  volumes:
+    - /proc:/host_proc:ro
+    - /sys:/host_sys:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /home/holly/docker/:/config
+    - /mnt/storage:/mnt/storage
+    - /mnt/downloads:/mnt/downloads
+  restart: unless-stopped
 
   ${WATCHTOWER_CONTAINER}:
     image: ${WATCHTOWER_IMAGE}:${IMAGE_RELEASE}
