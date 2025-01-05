@@ -12,6 +12,17 @@ else
     exit 1
 fi
 
+# utils.sh
+load_env() {
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE"
+    else
+        echo "Error: .env file not found at $ENV_FILE"
+        exit 1
+    fi
+}
+
+
 #Detect Linux Distro
 detect_distro() {
     if [ -f /etc/os-release ]; then
