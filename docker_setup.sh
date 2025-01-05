@@ -3,12 +3,11 @@
 DOCKER_DIR="$HOME/docker"
 ENV_FILE="$DOCKER_DIR/.env"
 
-if [[ -f "$ENV_FILE" ]]; then
-    source "$ENV_FILE"
-else
-    whiptail --title "Docker Setup" --msgbox "Error: .env file not found at $ENV_FILE" 10 60
-    exit 1
-fi
+# Source utilities
+source ./utils.sh
+
+# Load environment variables
+load_env
 
 
 # Ensure DOCKER_DIR exists
