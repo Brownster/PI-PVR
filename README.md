@@ -1,6 +1,6 @@
 # 🐳 Docker Media Server Stack with VPN, Tailscale, and Media Management
 
-This project simplifies the setup of a Docker-based media server stack for Raspberry Pi and other Linux-based systems. It features secure VPN integration, Tailscale for remote access, and a suite of media management tools. The stack is designed for ease of use, scalability, and customization.
+This project simplifies the setup of a powerful Docker-based media server stack for Raspberry Pi and other Linux-based systems. It features secure VPN integration, Tailscale for remote access, and a suite of media management tools. The stack is designed for ease of use, scalability, and customization.
 
 ---
 
@@ -13,13 +13,18 @@ This project simplifies the setup of a Docker-based media server stack for Raspb
   Provides secure remote access to your server and Docker containers.
 
 - **Media Management Tools**  
-  - 🗂️ **Jackett**: Indexer proxy for torrent and Usenet sites.  
+  - 🐂 **Jackett**: Indexer proxy for torrent and Usenet sites.  
   - 🎥 **Radarr**: Movie downloader and organizer.  
   - 📺 **Sonarr**: TV show downloader and organizer.  
   - 🌐 **Transmission**: Torrent downloader.  
   - 📦 **NZBGet**: Usenet downloader.  
   - 📻 **Get IPlayer**: BBC iPlayer downloader with SonarrAutoImport.  
-  - 🎛️ **Jellyfin**: Media server for streaming.  
+  - 🎧 **Lidarr**: Music download manager.  
+  - 🎧 **Airsonic**: Personal media streamer for audio collections.  
+  - 📖 **Audiobookshelf**: Audiobook and podcast server.  
+  - 🔧 **Server Health Web Manager**: Web-based server monitoring and management tool.  
+  - 🔄 **RTDClient**: Download manager for torrents.  
+  - 🔹 **Jellyfin**: Media server for streaming.  
 
 - **File Sharing**  
   - **Samba**: Cross-platform file sharing for Windows, macOS, and Linux.  
@@ -108,7 +113,7 @@ Ensure `DOCKER_COMPOSE_URL` in `.env` points to the correct URL.
 
 ---
 
-## 🖥️ Services and Ports
+## 🔦️ Services and Ports
 
 | Service      | Default Port | URL                              |
 |--------------|--------------|----------------------------------|
@@ -163,7 +168,7 @@ docker exec -it transmission curl ifconfig.me
 
 ---
 
-## 🐞 Troubleshooting
+## 🕸️ Troubleshooting
 
 - **VPN Issues**:  
   - Ensure correct PIA credentials in `.env`.  
