@@ -26,105 +26,27 @@ run() {
 create_env_file() {
     echo "Creating .env file for sensitive data..."
     mkdir -p "$DOCKER_DIR"
+
+    # Define the location of the .env file
+    ENV_FILE="$DOCKER_DIR/.env"
+
+    # URL of the .env file in the repository
+    ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
+
     if [[ ! -f "$ENV_FILE" ]]; then
-        read -r -p "Enter your PIA_USERNAME: " PIA_USERNAME
-        read -r -s -p "Enter your PIA_PASSWORD: " PIA_PASSWORD
-        echo ""
-        read -r -p "Enter your TAILSCALE_AUTH_KEY (or press Enter to skip): " TAILSCALE_AUTH_KEY
-        
-
-        cat > "$ENV_FILE" <<EOF
-#General Docker
-DOCKER_DIR="$HOME/docker"
-DOCKER_COMPOSE_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/docker-compose.yml"
-
-# Docker Configuration (Optional)
-TIMEZONE=Europe/London
-IMAGE_RELEASE="latest"
-PUID=1000
-PGID=1000
-
-# Media folder names
-MOVIES_FOLDER="Movies"       # Name of the folder for movies/films/kids films etc
-TVSHOWS_FOLDER="TVShows"     # Name of the folder for TV shows/TV/kids TV etc
-DOWNLOADS="/mnt/storage/downloads"
-STORAGE_MOUNT="/mnt/storage/"
-
-# Samba Variable
-SAMBA_CONFIG="/etc/samba/smb.conf" # Path to Samba configuration file
-
-#Tailscale
-TAILSCALE_AUTH_KEY=$TAILSCALE_AUTH_KEY
-
-#PORTS
-JACKET_PORT="9117"
-SONARR_PORT="8989"
-RADARR_PORT="7878"
-TRANSMISSION_PORT="9091"
-NZBGET="6789"
-GET_IPLAYER_PORT="1935"
-MEDIASERVER_HTTP="8096"
-MEDIASERVER_HTTPS="8920"
-
-# VPN Configuration
-PIA_USERNAME=$PIA_USERNAME
-PIA_PASSWORD=$PIA_PASSWORD
-VPN_CONTAINER="vpn"
-VPN_IMAGE="qmcgaw/gluetun"
-CONTAINER_NETWORK="vpn_network"
-
-#Jacket
-JACKETT_CONTAINER="jackett"
-JACKETT_IMAGE="linuxserver/jackett"
-
-#Sonarr
-SONARR_CONTAINER="sonarr"
-SONARR_IMAGE="linuxserver/sonarr"
-SONARR_API_KEY="your_sonarr_api_key"   # Replace with actual API key after install
-
-#Radarr
-RADARR_CONTAINER="radarr"
-RADARR_IMAGE="linuxserver/radarr"
-RADARR_API_KEY="your_radarr_api_key"   # Replace with actual API key after install
-
-#Transmission
-TRANSMISSION_CONTAINER="transmission"
-TRANSMISSION_IMAGE="linuxserver/transmission"
-#NZBGet
-NZBGET_CONTAINER="nzbget"
-NZBGET_IMAGE="linuxserver/nzbget"
-
-#Get Iplayer
-GET_IPLAYER="get_iplayer"
-GET_IPLAYER_IMAGE="ghcr.io/thespad/get_iplayer"
-INCLUDERADIO="true"
-ENABLEIMPORT="true"
-
-#JellyFin
-JELLYFIN_CONTAINER="jellyfin"
-JELLYFIN_IMAGE="linuxserver/jellyfin"
-
-#WatchTower
-WATCHTOWER_CONTAINER="watchtower"
-WATCHTOWER_IMAGE="containrrr/watchtower"
-
-#Track runs
-tailscale_install_success=0
-PIA_SETUP_SUCCESS=0
-SHARE_SETUP_SUCCESS=0
-docker_install_success=0
-pia_vpn_setup_success=0
-docker_compose_success=0
-CREATE_CONFIG_SUCCESS=0
-INSTALL_DEPENDANCIES_SUCCESS=0
-DOCKER_NETWORK_SUCCESS=0
-EOF
-        echo ".env file created at $ENV_FILE."
-        chmod 600 "$ENV_FILE"
+        # Download the .env file
+        if curl -fSL "$ENV_URL" -o "$ENV_FILE"; then
+            echo ".env file downloaded successfully to $ENV_FILE."
+            chmod 600 "$ENV_FILE"
+        else
+            echo "Failed to download .env file from $ENV_URL."
+            return 1
+        fi
     else
         echo ".env file already exists. Update credentials if necessary."
     fi
 }
+
 
 
 #GET_IPLAYER CONFIG CREATION
@@ -522,195 +444,21 @@ create_docker_compose() {
         echo "Docker Compose stack is already deployed. Skipping."
         return
     fi    
+
+    echo "Creating Docker Compose file from repository..."
     
-    echo "Creating Docker Compose file..."
-    cat > "$DOCKER_DIR/docker-compose.yml" <<EOF
-version: "3.8"
-services:
-  ${VPN_CONTAINER}:
-    image: ${VPN_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${VPN_CONTAINER}
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    volumes:
-      - "${DOCKER_DIR}/${VPN_CONTAINER}:/gluetun"
-    env_file:
-      - ${DOCKER_DIR}/${VPN_CONTAINER}/.env
-    healthcheck:
-      test: curl --fail http://localhost:8000 || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-    ports:
-      - ${JACKET_PORT}:${JACKET_PORT}
-      - ${SONARR_PORT}:${SONARR_PORT}
-      - ${RADARR_PORT}:${RADARR_PORT}
-      - ${TRANSMISSION_PORT}:${TRANSMISSION_PORT}
-      - ${NZBGET}:${NZBGET}
-    networks:
-      - ${CONTAINER_NETWORK}
+    # URL of the Docker Compose file in the repository
+    COMPOSE_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/docker-compose.yml"
+    ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
+    
+    # Directory to save the Docker Compose file
+    mkdir -p "$DOCKER_DIR"
 
-  ${JACKETT_CONTAINER}:
-    image: ${JACKETT_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${JACKETT_CONTAINER}
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${JACKETT_CONTAINER}:/config
-      - ${DOWNLOADS}:/downloads
-    restart: unless-stopped
+    # Download the Docker Compose file
+    if curl -fSL "$COMPOSE_URL" -o "$DOCKER_DIR/docker-compose.yml"; then
+        echo "Docker Compose file downloaded successfully to $DOCKER_DIR/docker-compose.yml"
 
-  ${SONARR_CONTAINER}:
-    image: ${SONARR_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${SONARR_CONTAINER}
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${SONARR_CONTAINER}:/config
-      - ${STORAGE_MOUNT}/${TVSHOWS_FOLDER}:/tv
-      - ${DOWNLOADS}:/downloads/completed/
-    restart: unless-stopped
-
-  ${RADARR_CONTAINER}:
-    image: ${RADARR_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${RADARR_CONTAINER}
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${RADARR_CONTAINER}:/config
-      - ${STORAGE_MOUNT}/${MOVIES_FOLDER}:/movies
-      - ${DOWNLOADS}:/downloads/completed/
-    restart: unless-stopped
-
-  ${TRANSMISSION_CONTAINER}:
-    image: ${TRANSMISSION_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${TRANSMISSION_CONTAINER}
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${TRANSMISSION_CONTAINER}:/config
-      - ${DOWNLOADS}:/downloads/completed/
-    restart: unless-stopped
-
-  rdtclient:
-    image: rogerfar/rdtclient
-    container_name: rdtclient
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/rdtclient:/data/db
-      - ${DOWNLOADS}:/downloads/completed/
-    logging:
-       driver: json-file
-       options:
-          max-size: 10m
-    ports:
-      - 6500:6500
-    restart: unless-stopped
-
-  ${NZBGET_CONTAINER}:
-    image: ${NZBGET_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${NZBGET_CONTAINER}
-    network_mode: "service:${VPN_CONTAINER}"
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${NZBGET_CONTAINER}:/config
-      - ${DOWNLOADS}/incomplete:/downloads/incomplete
-      - ${DOWNLOADS}/complete:/downloads/completed/
-    restart: unless-stopped
-
-  ${GET_IPLAYER}:
-    image: ${GET_IPLAYER_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${GET_IPLAYER}
-    network_mode: bridge
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - INCLUDERADIO=${INCLUDERADIO}
-      - ENABLEIMPORT=${ENABLEIMPORT}
-    volumes:
-      - ${DOCKER_DIR}/${GET_IPLAYER}/config:/config
-      - ${DOWNLOADS}/complete:/downloads/completed/
-    ports:
-      - ${GET_IPLAYER_PORT}:${GET_IPLAYER_PORT}
-    restart: unless-stopped
-
-  ${JELLYFIN_CONTAINER}:
-    image: ${JELLYFIN_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${JELLYFIN_CONTAINER}
-    network_mode: bridge
-    environment:
-      - TZ=${TIMEZONE}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ${DOCKER_DIR}/${JELLYFIN_CONTAINER}:/config
-      - ${STORAGE_MOUNT}:/media
-    ports:
-      - ${MEDIASERVER_HTTP}:${MEDIASERVER_HTTP}
-      - ${MEDIASERVER_HTTPS}:${MEDIASERVER_HTTPS}
-    restart: unless-stopped
-
-pi-health-dashboard:
-  image: brownster/pi-health:latest
-  container_name: pi-health-dashboard
-  environment:
-    - TZ=${TIMEZONE}
-    - DISK_PATH=/mnt/storage
-    - DISK_PATH_2=/mnt/downloads
-    - DOCKER_COMPOSE_PATH=/config/docker-compose.yml
-    - ENV_FILE_PATH=/config/.env
-    - BACKUP_DIR=/config/backups
-  ports:
-    - 8080:8080
-  volumes:
-    - /proc:/host_proc:ro
-    - /sys:/host_sys:ro
-    - /var/run/docker.sock:/var/run/docker.sock
-    - /home/holly/docker/:/config
-    - /mnt/storage:/mnt/storage
-    - /mnt/downloads:/mnt/downloads
-  restart: unless-stopped
-
-  ${WATCHTOWER_CONTAINER}:
-    image: ${WATCHTOWER_IMAGE}:${IMAGE_RELEASE}
-    container_name: ${WATCHTOWER_CONTAINER}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=3600
-    restart: unless-stopped
-
-networks:
-  ${CONTAINER_NETWORK}:
-    driver: bridge
-
-EOF
-    echo "Docker Compose file created at $DOCKER_DIR/docker-compose.yml"
-    echo "Docker Compose stack deployed successfully."
+    fi    
     sed -i 's/docker_compose_success=0/docker_compose_success=1/' "$ENV_FILE"
 }
 
@@ -963,7 +711,13 @@ main() {
     setup_pia_vpn
     create_docker_compose
     create_config_json
-    choose_sharing_method
+    ensure_docker_dir
+    initial_setup_check
+    select_storage
+    assign_folders
+    create_shares
+    update_env_file
+    final_review
     setup_docker_network
     deploy_docker_compose
     setup_mount_and_docker_start
