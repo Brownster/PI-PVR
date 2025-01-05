@@ -1,16 +1,11 @@
 #!/bin/bash
 # variables
 DOCKER_DIR="$HOME/docker"
+# Source utilities
+source ./utils.sh
 
-# Check and source the .env file
-ENV_FILE="$DOCKER_DIR/.env"
-
-if [[ -f "$ENV_FILE" ]]; then
-    source "$ENV_FILE"
-else
-    whiptail --title "Install Dependancies" --msgbox "Error: .env file not found at $ENV_FILE"
-    exit 1
-fi
+# Load environment variables
+load_env
 
 # Install required dependencies
 install_dependencies() {
