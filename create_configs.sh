@@ -4,14 +4,11 @@ DOCKER_DIR="$HOME/docker"
 
 # Check and source the .env file
 ENV_FILE="$DOCKER_DIR/.env"
+# Source utilities
+source ./utils.sh
 
-if [[ -f "$ENV_FILE" ]]; then
-    source "$ENV_FILE"
-else
-    echo "Error: .env file not found at $ENV_FILE"
-    exit 1
-fi
-
+# Load environment variables
+load_env
 
 #GET_IPLAYER CONFIG CREATION
 create_config_json() {
