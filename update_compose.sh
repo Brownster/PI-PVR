@@ -1,14 +1,10 @@
 #!/bin/bash
 
-DOCKER_DIR="$HOME/docker"
-ENV_FILE="$DOCKER_DIR/.env"
+# Source utilities
+source ./utils.sh
 
-if [[ -f "$ENV_FILE" ]]; then
-    source "$ENV_FILE"
-else
-    whiptail --title "Update Docker Compose" --msgbox "Error: .env file not found at $ENV_FILE" 10 60
-    exit 1
-fi
+# Load environment variables
+load_env
 
 
 # Function to pull the latest docker-compose.yml
