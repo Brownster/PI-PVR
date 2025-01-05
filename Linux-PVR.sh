@@ -259,15 +259,14 @@ initial_setup_check() {
 
 # Storage Selection
 select_storage() {
-    echo "Choose your storage type:"
-    echo "1. Local Storage"
-    echo "2. USB Storage"
-    echo "3. Network Storage"
-    read -r -p "Enter your choice (1/2/3): " STORAGE_TYPE
+    STORAGE_TYPE=$(whiptail --title "Storage Selection" --menu "Choose your storage type:" 15 60 4 \
+        "1" "Local Storage" \
+        "2" "USB Storage" \
+        "3" "Network Storage" 3>&1 1>&2 2>&3)
 
     case "$STORAGE_TYPE" in
         1)
-            read -r -p "Enter the path for local storage: " LOCAL_STORAGE_PATH
+            LOCAL_STORAGE_PATH=$(whiptail --inputbox "Enter the path for local storage:" 10 60 3>&1 1>&2 2>&3)
             STORAGE_MOUNT="$LOCAL_STORAGE_PATH"
             ;;
         2)
@@ -277,7 +276,7 @@ select_storage() {
             setup_network_storage
             ;;
         *)
-            echo "Invalid choice. Exiting."
+            whiptail --title "Error" --msgbox "Invalid choice. Exiting." 10 60
             exit 1
             ;;
     esac
@@ -285,23 +284,20 @@ select_storage() {
 
 # Mount USB Storage
 setup_usb_storage() {
-    echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}')
 
     if [[ -z "$USB_DRIVES" ]]; then
-        echo "No USB drives detected. Please ensure they are connected and retry."
+        whiptail --title "Error" --msgbox "No USB drives detected. Please ensure they are connected and retry." 10 60
         exit 1
     fi
 
-    echo "Available USB drives:"
-    echo "$USB_DRIVES" | nl
-    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
-    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
+    DRIVE_SELECTION=$(echo "$USB_DRIVES" | nl | whiptail --title "USB Storage" --menu "Select a drive:" 15 60 8 3>&1 1>&2 2>&3)
+    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DRIVE_SELECTION}p" | awk '{print $1}')
+    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${DRIVE_SELECTION}p" | awk '{print $3}')
 
     STORAGE_MOUNT="/mnt/storage"
-    echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
+
     if [[ "$STORAGE_FS" == "ntfs" ]]; then
         sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
     else
@@ -313,10 +309,9 @@ setup_usb_storage() {
 
 # Mount Network Storage
 setup_network_storage() {
-    read -r -p "Enter the network share path (e.g., //server/share): " NETWORK_PATH
-    read -r -p "Enter the mount point (e.g., /mnt/network): " NETWORK_MOUNT
+    NETWORK_PATH=$(whiptail --inputbox "Enter the network share path (e.g., //server/share):" 10 60 3>&1 1>&2 2>&3)
+    NETWORK_MOUNT=$(whiptail --inputbox "Enter the mount point (e.g., /mnt/network):" 10 60 3>&1 1>&2 2>&3)
 
-    echo "Mounting network share..."
     sudo mkdir -p "$NETWORK_MOUNT"
     sudo mount -t cifs "$NETWORK_PATH" "$NETWORK_MOUNT" -o username=guest
 
@@ -328,9 +323,8 @@ update_fstab() {
     local mount_point="$1"
     local device="$2"
 
-    echo "Adding $mount_point to /etc/fstab..."
     if grep -q "$mount_point" /etc/fstab; then
-        echo "$mount_point is already in /etc/fstab. Skipping."
+        whiptail --title "Info" --msgbox "Mount point $mount_point already exists in /etc/fstab. Skipping." 10 60
     else
         echo "$device $mount_point auto defaults 0 2" | sudo tee -a /etc/fstab > /dev/null
     fi
@@ -344,7 +338,6 @@ assign_folders() {
 
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
         if [[ ! -d "$DIR" ]]; then
-            echo "Creating directory $DIR..."
             sudo mkdir -p "$DIR"
             sudo chmod 775 "$DIR"
             sudo chown "$USER:$USER" "$DIR"
@@ -354,10 +347,9 @@ assign_folders() {
 
 # Create Shares
 create_shares() {
-    echo "Choose sharing method:"
-    echo "1. Samba"
-    echo "2. NFS"
-    read -r -p "Enter your choice (1/2): " SHARE_METHOD
+    SHARE_METHOD=$(whiptail --title "Share Setup" --menu "Choose sharing method:" 15 60 4 \
+        "1" "Samba" \
+        "2" "NFS" 3>&1 1>&2 2>&3)
 
     case "$SHARE_METHOD" in
         1)
@@ -367,7 +359,7 @@ create_shares() {
             setup_nfs_shares
             ;;
         *)
-            echo "Invalid choice. Exiting."
+            whiptail --title "Error" --msgbox "Invalid choice. Exiting." 10 60
             exit 1
             ;;
     esac
@@ -375,15 +367,12 @@ create_shares() {
 
 # Setup Samba Shares
 setup_samba_shares() {
-    echo "Configuring Samba..."
     if ! command -v smbd &> /dev/null; then
-        echo "Samba is not installed. Installing now..."
-        sudo install_package install -y samba samba-common-bin
-    else
-        echo "Samba is already installed. Skipping installation."
+        sudo install_package samba samba-common-bin
     fi
 
     SAMBA_CONFIG="/etc/samba/smb.conf"
+
     if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
         sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
 
@@ -407,15 +396,15 @@ setup_samba_shares() {
 EOF
         sudo systemctl restart smbd
     fi
-    echo "Samba shares configured."
+
+    whiptail --title "Samba Shares" --msgbox "Samba shares configured." 10 60
 }
 
 # Setup NFS Shares
 setup_nfs_shares() {
-    echo "Configuring NFS..."
-    sudo install_package install -y nfs-kernel-server
-    EXPORTS_FILE="/etc/exports"
+    sudo install_package nfs-kernel-server
 
+    EXPORTS_FILE="/etc/exports"
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
         if ! grep -q "$DIR" "$EXPORTS_FILE"; then
             echo "$DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
@@ -424,7 +413,8 @@ setup_nfs_shares() {
 
     sudo exportfs -ra
     sudo systemctl restart nfs-kernel-server
-    echo "NFS shares configured."
+
+    whiptail --title "NFS Shares" --msgbox "NFS shares configured." 10 60
 }
 
 # Update .env File
@@ -532,7 +522,6 @@ install_dependencies() {
 
 
 # Set up Docker network for VPN containers
-# Setup Docker network
 setup_docker_network() {
     if [[ "$DOCKER_NETWORK_SUCCESS" == "1" ]]; then
         whiptail --title "Docker Network" --msgbox "Docker Network is already set up. Skipping." 10 60
