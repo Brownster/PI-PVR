@@ -1,6 +1,6 @@
 # 🐳 Docker Media Server Stack with VPN, Tailscale, and Media Management
 
-This project simplifies the setup of a powerful Docker-based media server stack for Raspberry Pi and other Linux-based systems. It features secure VPN integration, Tailscale for remote access, and a suite of media management tools. The stack is designed for ease of use, scalability, and customization.
+This project simplifies the setup of a Docker-based media server stack for Raspberry Pi and other Linux-based systems. It features secure VPN integration, Tailscale for remote access, and a suite of media management tools. The stack is designed for ease of use, scalability, and customization.
 
 ---
 
