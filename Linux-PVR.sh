@@ -80,10 +80,10 @@ create_env_file() {
 #GET_IPLAYER CONFIG CREATION
 create_config_json() {
     if [[ "$CREATE_CONFIG_SUCCESS" == "1" ]]; then
-        echo "IPlayer Get config already setup. Skipping."
+        whiptail --title "Get Iplayer" --msgbox "IPlayer Get config already setup. Skipping." 10 60
         return
     fi   
-    echo "Creating config.json for SonarrAutoImport..."
+    whiptail --title "Get Iplayer" --msgbox  "Creating config.json for SonarrAutoImport..." 10 60
 
     # Define paths
     CONFIG_DIR="$DOCKER_DIR/get_iplayer/config"
@@ -136,8 +136,8 @@ EOF
     # Update permissions
     chmod 600 "$CONFIG_FILE"
 
-    echo "config.json created at $CONFIG_FILE."
-    echo "Please update the API keys in the config file before running the container."
+    whiptail --title "Get Iplayer" --msgbox   "config.json created at $CONFIG_FILE." 10 60
+    whiptail --title "Get Iplayer" --msgbox   "Please update the API keys in the config file before running the container." 10 60
     sed -i 's/CREATE_CONFIG_SUCCESS=0/CREATE_CONFIG_SUCCESS==1/' "$ENV_FILE"
 }
 
@@ -151,15 +151,15 @@ update_fstab() {
     # Get the UUID of the device
     local uuid=$(blkid -s UUID -o value "$device")
     if [[ -z "$uuid" ]]; then
-        echo "Error: Could not retrieve UUID for device $device."
+        whiptail --title "error" --msgbox   "Error: Could not retrieve UUID for device $device."
         exit 1
     fi
 
     # Check if the mount point is already in /etc/fstab
     if grep -q "$mount_point" /etc/fstab; then
-        echo "Mount point $mount_point already exists in /etc/fstab. Skipping."
+        whiptail --title "Fstab" --msgbox "Mount point $mount_point already exists in /etc/fstab. Skipping." 10 60
     else
-        echo "Adding $mount_point to /etc/fstab..."
+        whiptail --title "Fstab" --msgbox "Adding $mount_point to /etc/fstab..."
         echo "UUID=$uuid $mount_point auto defaults 0 2" | sudo tee -a /etc/fstab > /dev/null
     fi
 }
@@ -168,7 +168,7 @@ update_fstab() {
 # Setup Tailscale
 setup_tailscale() {
     if [[ "$tailscale_install_success" == "1" ]]; then
-        echo "PIA already setup. Skipping."
+        whiptail --title "Tailscale" --msgbox "PIA already setup. Skipping."
         return
     fi
 
@@ -192,7 +192,7 @@ setup_tailscale() {
 
 setup_pia_vpn() {
     if [[ "$PIA_SETUP_SUCCESS" == "1" ]]; then
-        echo "PIA already setup. Skipping."
+        whiptail --title "PIA" --msgbox  "PIA already setup. Skipping."
         return
     fi
     
@@ -419,7 +419,7 @@ setup_nfs_shares() {
 
 # Update .env File
 update_env_file() {
-    echo "Updating .env file with folder locations..."
+    whiptail --title "ENV File" --msgbox "Updating .env file with folder locations..."
     cat >> "$ENV_FILE" <<EOF
 MOVIES_FOLDER="$MOVIES_DIR"
 TVSHOWS_FOLDER="$TVSHOWS_DIR"
@@ -429,25 +429,27 @@ EOF
 }
 
 # Final Review
+# Final Review
 final_review() {
-    echo "Setup complete. Summary:"
-    echo "Storage mounted at: $STORAGE_MOUNT"
-    echo "Movies folder: $MOVIES_DIR"
-    echo "TV Shows folder: $TVSHOWS_DIR"
-    echo "Downloads folder: $DOWNLOADS_DIR"
+    local summary="Setup complete. Summary:\n\n"
+    summary+="Storage mounted at: $STORAGE_MOUNT\n"
+    summary+="Movies folder: $MOVIES_DIR\n"
+    summary+="TV Shows folder: $TVSHOWS_DIR\n"
+    summary+="Downloads folder: $DOWNLOADS_DIR\n\n"
+
     if [[ "$SHARE_METHOD" == "1" ]]; then
-        echo "Samba shares available at:"
-        printf '\\%s\Movies\
-' "$SERVER_IP"
-        printf '\\%s\TVShows\
-' "$SERVER_IP"
-        printf '\\%s\Downloads\
-' "$SERVER_IP"
+        summary+="Samba shares available at:\n"
+        summary+="\\\\${SERVER_IP}\\Movies\n"
+        summary+="\\\\${SERVER_IP}\\TVShows\n"
+        summary+="\\\\${SERVER_IP}\\Downloads\n"
     elif [[ "$SHARE_METHOD" == "2" ]]; then
-        echo "NFS shares available at:"
-        echo "$SERVER_IP:$MOVIES_DIR"
-        echo "$SERVER_IP:$TVSHOWS_DIR"
-        echo "$SERVER_IP:$DOWNLOADS_DIR"
+        summary+="NFS shares available at:\n"
+        summary+="${SERVER_IP}:${MOVIES_DIR}\n"
+        summary+="${SERVER_IP}:${TVSHOWS_DIR}\n"
+        summary+="${SERVER_IP}:${DOWNLOADS_DIR}\n"
+    fi
+
+    whiptail --title "Setup Complete" --msgbox "$summary" 20 70
 
     # Mark success
     sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
@@ -458,18 +460,18 @@ final_review() {
 # Create Docker Compose file
 create_docker_compose() {
     if [[ "$docker_compose_success" == "1" ]]; then
-        echo "Docker Compose stack is already deployed. Skipping."
+        whiptail --title "Docker Compose" --msgbox  "Docker Compose stack is already deployed. Skipping." 10 60
         return
     fi    
 
-    echo "Creating Docker Compose file from repository..."
+    whiptail --title "Docker Compose" --msgbox  "Creating Docker Compose file from repository..." 10 60
     
     # Directory to save the Docker Compose file
     mkdir -p "$DOCKER_DIR"
 
     # Download the Docker Compose file
     if curl -fSL "$COMPOSE_URL" -o "$DOCKER_DIR/docker-compose.yml"; then
-        echo "Docker Compose file downloaded successfully to $DOCKER_DIR/docker-compose.yml"
+        whiptail --title "Docker Compose" --msgbox  "Docker Compose file downloaded successfully to $DOCKER_DIR/docker-compose.yml" 10 60
 
     fi    
     sed -i 's/docker_compose_success=0/docker_compose_success=1/' "$ENV_FILE"
@@ -480,21 +482,21 @@ create_docker_compose() {
 # Install required dependencies
 install_dependencies() {
     if [[ "$INSTALL_DEPENDANCIES_SUCCESS" == "1" ]]; then
-        echo "Docker Compose stack is already deployed. Skipping."
+        whiptail --title "Install Dependancies" --msgbox "Docker Compose stack is already deployed. Skipping." 10 60
         return
     fi
 
     # Install required dependencies, including git
-    echo "Installing dependencies..."
+    whiptail --title "Install Dependancies" --msgbox "Installing dependencies..." 10 60
     sudo apt update
     sudo apt install -y curl jq git
 
-    echo "Uninstalling any conflicting Docker packages..."
+    whiptail --title "Install Dependancies" --msgbox  "Uninstalling any conflicting Docker packages..." 10 60
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
         sudo install_package remove -y "$pkg"
     done
 
-    echo "Adding Docker's official GPG key and repository for Docker..."
+    whiptail --title "Install Dependancies" --msgbox  "Adding Docker's official GPG key and repository for Docker..." 10 60
     sudo install_package update
     sudo install_package install -y ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
@@ -506,16 +508,16 @@ install_dependencies() {
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo install_package update
 
-    echo "Installing Docker Engine, Docker Compose, and related packages..."
+    whiptail --title "Install Dependancies" --msgbox  "Installing Docker Engine, Docker Compose, and related packages..." 10 60
     sudo install_package install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    echo "Installing other required dependencies: curl, jq, git..."
+    whiptail --title "Install Dependancies" --msgbox  "Installing other required dependencies: curl, jq, git..." 10 60
     sudo install_package install -y curl jq git
 
-    echo "Verifying Docker installation..."
-    sudo docker run hello-world
+    whiptail --title "Install Dependancies" --msgbox  "Verifying Docker installation..." 10 60
+    #sudo docker run hello-world
 
-    echo "All dependencies installed successfully."
+    whiptail --title "Install Dependancies" --msgbox  "All dependencies installed successfully." 10 60
 
     sed -i 's/INSTALL_DEPENDANCIES_SUCCESS=0/INSTALL_DEPENDANCIES_SUCCESS=1/' "$ENV_FILE"
 }
@@ -547,37 +549,33 @@ setup_docker_network() {
 
 # Deploy Docker Compose stack
 deploy_docker_compose() {
-    echo "Deploying Docker Compose stack..."
+    whiptail --title "Deploy Docker Compose" --msgbox "Starting Docker Compose deployment..." 10 60
 
     # Check Docker group membership
     if ! groups "$USER" | grep -q "docker"; then
-        echo "User '$USER' is not yet in the 'docker' group. Adding to group..."
+        whiptail --title "Docker Group" --msgbox "User '$USER' is not in the 'docker' group. Adding to group..." 10 60
         sudo usermod -aG docker "$USER"
-        echo "User '$USER' has been added to the 'docker' group."
-        echo "Please log out and log back in, then restart this script."
+        whiptail --title "Docker Group" --msgbox "User '$USER' has been added to the 'docker' group. Please log out and log back in, then restart this script." 10 60
         exit 1
     fi
 
     # Temporarily disable get_iplayer in docker-compose.yml
     local compose_file="$DOCKER_DIR/docker-compose.yml"
-    echo "Disabling get_iplayer container for the first run..."
     sed -i '/get_iplayer:/,/restart: unless-stopped/ s/^/#/' "$compose_file"
+    whiptail --title "Docker Compose" --msgbox "Disabled get_iplayer container for the first run." 10 60
 
     # Attempt to deploy the Docker Compose stack
     if ! docker compose --env-file "$ENV_FILE" -f "$compose_file" up -d; then
-        echo "Error: Failed to deploy Docker Compose stack."
-        echo "This is likely due to recent changes to Docker permissions."
-        echo "Please log out and log back in to refresh your user session, then restart this script."
+        whiptail --title "Error" --msgbox "Failed to deploy Docker Compose stack. Please log out and log back in to refresh your user session, then restart this script." 10 60
         exit 1
     fi
 
-    echo "Docker Compose stack deployed successfully."
-    echo "Please retrieve the API keys for Radarr and Sonarr and update the .env file."
+    whiptail --title "Success" --msgbox "Docker Compose stack deployed successfully. Please retrieve the API keys for Radarr and Sonarr and update the .env file." 10 60
 
     # Notify user to uncomment get_iplayer and restart the stack
-    echo "To enable get_iplayer, redeploy the stack after adding api keys:"
-    echo "  sed -i '/#get_iplayer:/,/restart: unless-stopped/ s/^#//' \"$compose_file\""
+    whiptail --title "Next Steps" --msgbox "To enable get_iplayer, redeploy the stack after adding API keys. Use the following command:\n\nsed -i '/#get_iplayer:/,/restart: unless-stopped/ s/^#//' \"$compose_file\"" 15 70
 }
+
 
 
 
