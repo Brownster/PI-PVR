@@ -22,6 +22,37 @@ run() {
     fi
 }
 
+#Detect Linux Distro
+detect_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO=$ID
+    else
+        echo "Unsupported Linux distribution."
+        exit 1
+    fi
+}
+
+#Alter install based on $DISTRO
+install_package() {
+    case $DISTRO in
+        ubuntu|debian)
+            sudo apt-get install -y "$@"
+            ;;
+        fedora|centos|rhel)
+            sudo dnf install -y "$@"
+            ;;
+        arch)
+            sudo pacman -S --noconfirm "$@"
+            ;;
+        *)
+            echo "Unsupported Linux distribution: $DISTRO"
+            exit 1
+            ;;
+    esac
+}
+
+
 # Create .env file for sensitive data
 create_env_file() {
     echo "Creating .env file for sensitive data..."
@@ -351,7 +382,7 @@ setup_samba_shares() {
     echo "Configuring Samba..."
     if ! command -v smbd &> /dev/null; then
         echo "Samba is not installed. Installing now..."
-        sudo apt-get install -y samba samba-common-bin
+        sudo install_package install -y samba samba-common-bin
     else
         echo "Samba is already installed. Skipping installation."
     fi
@@ -386,7 +417,7 @@ EOF
 # Setup NFS Shares
 setup_nfs_shares() {
     echo "Configuring NFS..."
-    sudo apt-get install -y nfs-kernel-server
+    sudo install_package install -y nfs-kernel-server
     EXPORTS_FILE="/etc/exports"
 
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
@@ -478,12 +509,12 @@ install_dependencies() {
 
     echo "Uninstalling any conflicting Docker packages..."
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
-        sudo apt-get remove -y "$pkg"
+        sudo install_package remove -y "$pkg"
     done
 
     echo "Adding Docker's official GPG key and repository for Docker..."
-    sudo apt-get update
-    sudo apt-get install -y ca-certificates curl
+    sudo install_package update
+    sudo install_package install -y ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
     sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
     sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -491,13 +522,13 @@ install_dependencies() {
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update
+    sudo install_package update
 
     echo "Installing Docker Engine, Docker Compose, and related packages..."
-    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo install_package install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     echo "Installing other required dependencies: curl, jq, git..."
-    sudo apt-get install -y curl jq git
+    sudo install_package install -y curl jq git
 
     echo "Verifying Docker installation..."
     sudo docker run hello-world
@@ -706,6 +737,7 @@ main() {
     if [[ -f "$ENV_FILE" ]]; then
         source "$ENV_FILE"
     fi
+    detect_distro
     setup_tailscale
     install_dependencies
     setup_pia_vpn
