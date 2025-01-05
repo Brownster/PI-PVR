@@ -282,38 +282,61 @@ EOF
 }
 
 
-#choose smb or nfs (smb if using windows devices to connect)
-choose_sharing_method() {
-    if [[ "$SHARE_SETUP_SUCCESS" == "1" ]]; then
-        echo "Network shares already setup. Skipping."
-        return
-    fi    
-
-    echo "Choose your preferred file sharing method:"
-    echo "1. Samba (Best for cross-platform: Windows, macOS, Linux)"
-    echo "2. NFS (Best for Linux-only environments)"
-    read -r -p "Enter the number (1 or 2): " SHARE_METHOD
-
-    if [[ "$SHARE_METHOD" == "1" ]]; then
-        setup_usb_and_samba
-    elif [[ "$SHARE_METHOD" == "2" ]]; then
-        setup_usb_and_nfs
-    else
-        echo "Invalid selection. Defaulting to Samba."
-        SHARE_METHOD="1"
-        setup_usb_and_samba
+# Ensure DOCKER_DIR exists
+ensure_docker_dir() {
+    if [[ ! -d "$DOCKER_DIR" ]]; then
+        echo "Creating Docker directory at $DOCKER_DIR..."
+        mkdir -p "$DOCKER_DIR"
     fi
 
-    SERVER_IP=$(hostname -I | awk '{print $1}') # Ensure SERVER_IP is set here for global use
+    if [[ ! -f "$ENV_FILE" ]]; then
+        echo "Creating .env file at $ENV_FILE..."
+        touch "$ENV_FILE"
+        chmod 600 "$ENV_FILE"
+    fi
 }
 
+# Initial Setup Check
+initial_setup_check() {
+    echo "Checking if storage is already configured..."
+    if [[ -d "/mnt/storage" ]]; then
+        read -r -p "Storage appears to be configured. Do you want to skip to share creation? (y/n): " RESPONSE
+        if [[ "$RESPONSE" =~ ^[Yy]$ ]]; then
+            create_shares
+            exit 0
+        fi
+    fi
+}
 
+# Storage Selection
+select_storage() {
+    echo "Choose your storage type:"
+    echo "1. Local Storage"
+    echo "2. USB Storage"
+    echo "3. Network Storage"
+    read -r -p "Enter your choice (1/2/3): " STORAGE_TYPE
 
-# Configure USB drive and Samba share
-setup_usb_and_samba() {
+    case "$STORAGE_TYPE" in
+        1)
+            read -r -p "Enter the path for local storage: " LOCAL_STORAGE_PATH
+            STORAGE_MOUNT="$LOCAL_STORAGE_PATH"
+            ;;
+        2)
+            setup_usb_storage
+            ;;
+        3)
+            setup_network_storage
+            ;;
+        *)
+            echo "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
+}
+
+# Mount USB Storage
+setup_usb_storage() {
     echo "Detecting USB drives..."
-
-    # List available partitions
     USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
 
     if [[ -z "$USB_DRIVES" ]]; then
@@ -321,55 +344,13 @@ setup_usb_and_samba() {
         exit 1
     fi
 
-    # Display USB drives and prompt for storage drive
     echo "Available USB drives:"
     echo "$USB_DRIVES" | nl
-    read -r -p "Select the drive number for storage (TV Shows and Movies): " STORAGE_SELECTION
+    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
     STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
     STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
-    
-    # Define storage mount point before case
+
     STORAGE_MOUNT="/mnt/storage"
-
-    # Option for downloads directory
-    echo "Do you want to:"
-    echo "1. Use the same drive for downloads."
-    echo "2. Use a different USB drive for downloads."
-    echo "3. Explicitly specify a path for downloads (e.g., internal storage)."
-    read -r -p "Enter your choice (1/2/3): " DOWNLOAD_CHOICE
-
-case "$DOWNLOAD_CHOICE" in
-    1)
-        DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
-        DOWNLOAD_MOUNT="$STORAGE_MOUNT/downloads"  # Explicitly set the downloads mount path
-        ;;
-    2)
-        echo "Available USB drives:"
-        echo "$USB_DRIVES" | nl
-        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
-        DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
-        DOWNLOAD_MOUNT="/mnt/downloads"  # Default path for a different drive
-        ;;
-    3)
-        read -r -p "Enter the explicit path for downloads (e.g., /home/username/Downloads): " DOWNLOAD_MOUNT
-        ;;
-    *)
-        echo "Invalid choice. Defaulting to the same drive for downloads."
-        DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
-        DOWNLOAD_MOUNT="$STORAGE_MOUNT/downloads"  # Default path if invalid input
-        ;;
-esac
-
-    # Define mount points
-    STORAGE_MOUNT="/mnt/storage"
-    if [[ -z "$DOWNLOAD_MOUNT" ]]; then
-        DOWNLOAD_MOUNT="${STORAGE_MOUNT}/downloads"
-    fi
-
-    # Mount storage drive
     echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
     if [[ "$STORAGE_FS" == "ntfs" ]]; then
@@ -377,42 +358,84 @@ esac
     else
         sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
     fi
-    if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the drive and try again."
-        exit 1
-    fi
 
-    # Update fstab for storage drive
     update_fstab "$STORAGE_MOUNT" "$STORAGE_DRIVE"
+}
 
-    # Verify the explicit path exists
-    sudo mkdir -p "$DOWNLOAD_MOUNT"
+# Mount Network Storage
+setup_network_storage() {
+    read -r -p "Enter the network share path (e.g., //server/share): " NETWORK_PATH
+    read -r -p "Enter the mount point (e.g., /mnt/network): " NETWORK_MOUNT
 
+    echo "Mounting network share..."
+    sudo mkdir -p "$NETWORK_MOUNT"
+    sudo mount -t cifs "$NETWORK_PATH" "$NETWORK_MOUNT" -o username=guest
 
-    # Detect and create media directories
+    update_fstab "$NETWORK_MOUNT" "$NETWORK_PATH"
+}
+
+# Update fstab
+update_fstab() {
+    local mount_point="$1"
+    local device="$2"
+
+    echo "Adding $mount_point to /etc/fstab..."
+    if grep -q "$mount_point" /etc/fstab; then
+        echo "$mount_point is already in /etc/fstab. Skipping."
+    else
+        echo "$device $mount_point auto defaults 0 2" | sudo tee -a /etc/fstab > /dev/null
+    fi
+}
+
+# Folder Assignment
+assign_folders() {
     MOVIES_DIR="$STORAGE_MOUNT/Movies"
     TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
+    DOWNLOADS_DIR="$STORAGE_MOUNT/Downloads"
 
-    for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR"; do
+    for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
         if [[ ! -d "$DIR" ]]; then
             echo "Creating directory $DIR..."
             sudo mkdir -p "$DIR"
+            sudo chmod 775 "$DIR"
+            sudo chown "$USER:$USER" "$DIR"
         fi
     done
+}
 
-    # Set permissions for storage and downloads
-    echo "Setting permissions..."
-    sudo chmod -R 775 "$STORAGE_MOUNT" "$DOWNLOAD_MOUNT"
-    sudo chown -R "$USER:$USER" "$STORAGE_MOUNT" "$DOWNLOAD_MOUNT"
+# Create Shares
+create_shares() {
+    echo "Choose sharing method:"
+    echo "1. Samba"
+    echo "2. NFS"
+    read -r -p "Enter your choice (1/2): " SHARE_METHOD
 
-    # Install Samba and configure shares
+    case "$SHARE_METHOD" in
+        1)
+            setup_samba_shares
+            ;;
+        2)
+            setup_nfs_shares
+            ;;
+        *)
+            echo "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
+}
+
+# Setup Samba Shares
+setup_samba_shares() {
     echo "Configuring Samba..."
     if ! command -v smbd &> /dev/null; then
+        echo "Samba is not installed. Installing now..."
         sudo apt-get install -y samba samba-common-bin
+    else
+        echo "Samba is already installed. Skipping installation."
     fi
 
-    # Add shares
-    if ! grep -q "\[Downloads\]" "$SAMBA_CONFIG"; then
+    SAMBA_CONFIG="/etc/samba/smb.conf"
+    if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
         sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
 
 [Movies]
@@ -428,151 +451,68 @@ esac
    guest ok = yes
 
 [Downloads]
-   path = $DOWNLOAD_MOUNT
+   path = $DOWNLOADS_DIR
    browseable = yes
    read only = no
    guest ok = yes
 EOF
         sudo systemctl restart smbd
     fi
-
-    echo "Configuration complete."
-    echo "Storage Drive Mounted: $STORAGE_MOUNT"
-    echo "Download Location: $DOWNLOAD_MOUNT"
-    echo "Samba Shares:"
-    printf '  \\\\%s\\Movies\n' "$SERVER_IP"
-    printf '  \\\\%s\\TVShows\n' "$SERVER_IP"
-    printf '  \\\\%s\\Downloads\n' "$SERVER_IP"
-
-    # Mark success
-    sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
+    echo "Samba shares configured."
 }
 
-
-setup_usb_and_nfs() {
-    echo "Installing necessary NFS packages..."
+# Setup NFS Shares
+setup_nfs_shares() {
+    echo "Configuring NFS..."
     sudo apt-get install -y nfs-kernel-server
-
-    echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
-
-    if [[ -z "$USB_DRIVES" ]]; then
-        echo "No USB drives detected. Please ensure they are connected and retry."
-        exit 1
-    fi
-
-    echo "Available USB drives:"
-    echo "$USB_DRIVES" | nl
-    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
-    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
-
-    read -r -p "Do you want to use the same drive for downloads? (y/n): " SAME_DRIVE
-    if [[ "$SAME_DRIVE" =~ ^[Yy]$ ]]; then
-        DOWNLOAD_DRIVE=$STORAGE_DRIVE
-        DOWNLOAD_FS=$STORAGE_FS
-    else
-        echo "Available USB drives:"
-        echo "$USB_DRIVES" | nl
-        read -r -p "Select the drive number for downloads: " DOWNLOAD_SELECTION
-        DOWNLOAD_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $1}')
-        DOWNLOAD_FS=$(echo "$USB_DRIVES" | sed -n "${DOWNLOAD_SELECTION}p" | awk '{print $3}')
-    fi
-
-    # Define mount points
-    STORAGE_MOUNT="${STRORAGE_MOUNT}"
-    DOWNLOAD_MOUNT="${DOWNLOADS}"
-
-    # Mount storage drive
-    echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
-    sudo mkdir -p "$STORAGE_MOUNT"
-    if [[ "$STORAGE_FS" == "ntfs" ]]; then
-        sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
-    else
-        sudo mount "$STORAGE_DRIVE" "$STORAGE_MOUNT"
-    fi
-    if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to mount $STORAGE_DRIVE. Please check the drive and try again."
-        exit 1
-    fi
-
-    # Update fstab for storage drive
-    update_fstab "$STORAGE_MOUNT" "$STORAGE_DRIVE"
-
-    # Mount download drive if different
-    if [[ "$SAME_DRIVE" =~ ^[Nn]$ ]]; then
-        echo "Mounting $DOWNLOAD_DRIVE to $DOWNLOAD_MOUNT..."
-        sudo mkdir -p "$DOWNLOAD_MOUNT"
-        if [[ "$DOWNLOAD_FS" == "ntfs" ]]; then
-            sudo mount -t ntfs-3g "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
-        else
-            sudo mount "$DOWNLOAD_DRIVE" "$DOWNLOAD_MOUNT"
-        fi
-        if [[ $? -ne 0 ]]; then
-            echo "Error: Failed to mount $DOWNLOAD_DRIVE. Please check the drive and try again."
-            exit 1
-        fi
-
-        # Update fstab for download drive
-        update_fstab "$DOWNLOAD_MOUNT" "$DOWNLOAD_DRIVE"
-    fi
-
-    # Detect and create media directories
-    MOVIES_DIR="$STORAGE_MOUNT/Movies"
-    TVSHOWS_DIR="$STORAGE_MOUNT/TVShows"
-
-    if [[ ! -d "$MOVIES_DIR" ]]; then
-        read -r -p "Movies directory not found. Do you want to create it? (y/n): " CREATE_MOVIES
-        if [[ "$CREATE_MOVIES" =~ ^[Yy]$ ]]; then
-            echo "Creating Movies directory..."
-            sudo mkdir -p "$MOVIES_DIR"
-        else
-            echo "Skipping Movies directory creation."
-        fi
-    fi
-
-    if [[ ! -d "$TVSHOWS_DIR" ]]; then
-        read -r -p "TVShows directory not found. Do you want to create it? (y/n): " CREATE_TVSHOWS
-        if [[ "$CREATE_TVSHOWS" =~ ^[Yy]$ ]]; then
-            echo "Creating TVShows directory..."
-            sudo mkdir -p "$TVSHOWS_DIR"
-        else
-            echo "Skipping TVShows directory creation."
-        fi
-    fi
-
-    # Update /etc/exports for NFS
     EXPORTS_FILE="/etc/exports"
-    echo "Setting up NFS share..."
 
-    # Add storage directory if not already in exports
-    if ! grep -q "$STORAGE_MOUNT" "$EXPORTS_FILE"; then
-        echo "$STORAGE_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
-    else
-        echo "NFS export for $STORAGE_MOUNT already exists. Skipping."
-    fi
+    for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
+        if ! grep -q "$DIR" "$EXPORTS_FILE"; then
+            echo "$DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
+        fi
+    done
 
-    # Add download directory if not already in exports
-    if ! grep -q "$DOWNLOAD_MOUNT" "$EXPORTS_FILE"; then
-        echo "$DOWNLOAD_MOUNT *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
-    else
-        echo "NFS export for $DOWNLOAD_MOUNT already exists. Skipping."
-    fi
-
-    echo "Exporting directories for NFS..."
     sudo exportfs -ra
-
-    echo "Restarting NFS server..."
     sudo systemctl restart nfs-kernel-server
+    echo "NFS shares configured."
+}
 
-    SERVER_IP=$(hostname -I | awk '{print $1}')
-    echo "Configuration complete."
-    echo "NFS Shares available at:"
-    echo "  $SERVER_IP:$STORAGE_MOUNT"
-    echo "  $SERVER_IP:$DOWNLOAD_MOUNT"
+# Update .env File
+update_env_file() {
+    echo "Updating .env file with folder locations..."
+    cat >> "$ENV_FILE" <<EOF
+MOVIES_FOLDER="$MOVIES_DIR"
+TVSHOWS_FOLDER="$TVSHOWS_DIR"
+DOWNLOADS_FOLDER="$DOWNLOADS_DIR"
+EOF
+    echo ".env file updated."
+}
+
+# Final Review
+final_review() {
+    echo "Setup complete. Summary:"
+    echo "Storage mounted at: $STORAGE_MOUNT"
+    echo "Movies folder: $MOVIES_DIR"
+    echo "TV Shows folder: $TVSHOWS_DIR"
+    echo "Downloads folder: $DOWNLOADS_DIR"
+    if [[ "$SHARE_METHOD" == "1" ]]; then
+        echo "Samba shares available at:"
+        printf '\\%s\Movies\
+' "$SERVER_IP"
+        printf '\\%s\TVShows\
+' "$SERVER_IP"
+        printf '\\%s\Downloads\
+' "$SERVER_IP"
+    elif [[ "$SHARE_METHOD" == "2" ]]; then
+        echo "NFS shares available at:"
+        echo "$SERVER_IP:$MOVIES_DIR"
+        echo "$SERVER_IP:$TVSHOWS_DIR"
+        echo "$SERVER_IP:$DOWNLOADS_DIR"
 
     # Mark success
     sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
+    fi
 }
 
 
