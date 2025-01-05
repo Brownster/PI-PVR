@@ -6,6 +6,8 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 CONTAINER_NETWORK="vpn_network"
 DOCKER_DIR="$HOME/docker"
 ENV_FILE="$DOCKER_DIR/.env"
+ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
+COMPOSE_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/docker-compose.yml"
 
 # Exit on error
 set -euo pipefail
@@ -28,7 +30,7 @@ detect_distro() {
         . /etc/os-release
         DISTRO=$ID
     else
-        echo "Unsupported Linux distribution."
+        whiptail --title "Error" --msgbox "Unsupported Linux distribution." 10 60
         exit 1
     fi
 }
@@ -46,7 +48,7 @@ install_package() {
             sudo pacman -S --noconfirm "$@"
             ;;
         *)
-            echo "Unsupported Linux distribution: $DISTRO"
+            whiptail --title "Error" --msgbox "Unsupported Linux distribution: $DISTRO" 10 60
             exit 1
             ;;
     esac
@@ -55,26 +57,21 @@ install_package() {
 
 # Create .env file for sensitive data
 create_env_file() {
-    echo "Creating .env file for sensitive data..."
-    mkdir -p "$DOCKER_DIR"
+    if whiptail --title "Setup" --yesno "Do you want to download a new .env file?" 10 60; then
+        mkdir -p "$DOCKER_DIR"
 
-    # Define the location of the .env file
-    ENV_FILE="$DOCKER_DIR/.env"
+        # URL of the .env file in the repository
+        ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
 
-    # URL of the .env file in the repository
-    ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
-
-    if [[ ! -f "$ENV_FILE" ]]; then
-        # Download the .env file
         if curl -fSL "$ENV_URL" -o "$ENV_FILE"; then
-            echo ".env file downloaded successfully to $ENV_FILE."
+            whiptail --title "Success" --msgbox ".env file downloaded successfully." 10 60
             chmod 600 "$ENV_FILE"
         else
-            echo "Failed to download .env file from $ENV_URL."
-            return 1
+            whiptail --title "Error" --msgbox "Failed to download .env file." 10 60
+            exit 1
         fi
     else
-        echo ".env file already exists. Update credentials if necessary."
+        whiptail --title "Skipped" --msgbox "Using existing .env file if available." 10 60
     fi
 }
 
@@ -168,31 +165,30 @@ update_fstab() {
 }
 
 
-# Install and configure Tailscale
+# Setup Tailscale
 setup_tailscale() {
     if [[ "$tailscale_install_success" == "1" ]]; then
-        echo "Tailscale is already installed. Skipping."
+        echo "PIA already setup. Skipping."
         return
     fi
-    
-    echo "Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
-    echo "Tailscale installed."
 
-    echo "Starting Tailscale and authenticating..."
-    if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
-        echo "TAILSCALE_AUTH_KEY is not set. Tailscale will require manual authentication."
-        sudo tailscale up --accept-routes=false
-    else
-        sudo tailscale up --accept-routes=false --authkey="$TAILSCALE_AUTH_KEY"
+    if whiptail --title "Tailscale" --yesno "Do you want to set up Tailscale?" 10 60; then
+        show_progress "curl -fsSL https://tailscale.com/install.sh | sh" "Installing Tailscale..."
+
+        local auth_key
+        auth_key=$(whiptail --inputbox "Enter Tailscale Auth Key (leave blank for manual setup):" 10 60 3>&1 1>&2 2>&3)
+
+        if [ -z "$auth_key" ]; then
+            sudo tailscale up --accept-routes=false
+        else
+            sudo tailscale up --accept-routes=false --authkey="$auth_key"
+        fi
+
+        whiptail --title "Tailscale" --msgbox "Tailscale setup completed." 10 60
+        sed -i 's/tailscale_install_success=0/tailscale_install_success=1/' "$ENV_FILE"
     fi
-
-    echo "Tailscale is running."
-    echo "Access your server using its Tailscale IP: $(tailscale ip -4)"
-    echo "Manage devices at https://login.tailscale.com."
-    # Mark success
-    sed -i 's/tailscale_install_success=0/tailscale_install_success=1/' "$ENV_FILE"
 }
+
 
 setup_pia_vpn() {
     if [[ "$PIA_SETUP_SUCCESS" == "1" ]]; then
@@ -200,25 +196,25 @@ setup_pia_vpn() {
         return
     fi
     
-    echo "Setting up PIA OpenVPN VPN..."
+    whiptail --title "Setup PIA VPN" --msgbox "Setting PIA config file for $VPN_CONTAINER..." 10 60
 
     # Source the .env file to load PIA credentials
     if [[ -f "$ENV_FILE" ]]; then
         source "$ENV_FILE"
     else
-        echo "Error: .env file not found. Ensure you have run create_env_file first."
+        whiptail --title "Setup PIA VPN" --msgbox "Grabbing PIA Creds from $ENV_FILE..." 10 60
         exit 1
     fi
 
     # Ensure PIA credentials are set
     if [[ -z "$PIA_USERNAME" || -z "$PIA_PASSWORD" ]]; then
-        echo "Error: PIA credentials are not set. Ensure PIA_USERNAME and PIA_PASSWORD are correctly provided in the .env file."
+        whiptail --title "Setup PIA VPN" --msgbox "Error: PIA credentials are not set. Ensure PIA_USERNAME and PIA_PASSWORD are correctly provided in the .env file." 10 60
         exit 1
     fi
 
     # Create the gluetun directory for configuration
     GLUETUN_DIR="$DOCKER_DIR/$VPN_CONTAINER"
-    echo "Creating Gluetun configuration directory at $GLUETUN_DIR..."
+    whiptail --title "Create $VPN_CONTAINER config" --msgbox  "Creating $VPN_CONTAINER  configuration directory at $GLUETUN_DIR..." 10 60
     mkdir -p "$GLUETUN_DIR"
 
     # Write the environment variables to a Docker Compose file
@@ -229,7 +225,7 @@ OPENVPN_PASSWORD=$PIA_PASSWORD
 SERVER_REGIONS=Netherlands
 EOF
 
-    echo "OpenVPN setup complete. Configuration saved to $GLUETUN_DIR/.env."
+    whiptail --title "Create $VPN_CONTAINER config" --msgbox  "OpenVPN setup complete. Configuration saved to $GLUETUN_DIR/.env." 10 60
     # Mark success
     sed -i 's/PIA_SETUP_SUCCESS=0/PIA_SETUP_SUCCESS=1/' "$ENV_FILE"
 }
@@ -238,12 +234,12 @@ EOF
 # Ensure DOCKER_DIR exists
 ensure_docker_dir() {
     if [[ ! -d "$DOCKER_DIR" ]]; then
-        echo "Creating Docker directory at $DOCKER_DIR..."
+        whiptail --title "Create $VPN_CONTAINER config" --msgbox "Creating Docker directory at $DOCKER_DIR..." 10 60
         mkdir -p "$DOCKER_DIR"
     fi
 
     if [[ ! -f "$ENV_FILE" ]]; then
-        echo "Creating .env file at $ENV_FILE..."
+        whiptail --title "Create $VPN_CONTAINER config" --msgbox  "Creating .env file at $ENV_FILE..." 10 60
         touch "$ENV_FILE"
         chmod 600 "$ENV_FILE"
     fi
@@ -251,7 +247,7 @@ ensure_docker_dir() {
 
 # Initial Setup Check
 initial_setup_check() {
-    echo "Checking if storage is already configured..."
+    whiptail --title "Initial Storage Setup Check" --msgbox  "Checking if storage is already configured..."
     if [[ -d "/mnt/storage" ]]; then
         read -r -p "Storage appears to be configured. Do you want to skip to share creation? (y/n): " RESPONSE
         if [[ "$RESPONSE" =~ ^[Yy]$ ]]; then
@@ -263,15 +259,14 @@ initial_setup_check() {
 
 # Storage Selection
 select_storage() {
-    echo "Choose your storage type:"
-    echo "1. Local Storage"
-    echo "2. USB Storage"
-    echo "3. Network Storage"
-    read -r -p "Enter your choice (1/2/3): " STORAGE_TYPE
+    STORAGE_TYPE=$(whiptail --title "Storage Selection" --menu "Choose your storage type:" 15 60 4 \
+        "1" "Local Storage" \
+        "2" "USB Storage" \
+        "3" "Network Storage" 3>&1 1>&2 2>&3)
 
     case "$STORAGE_TYPE" in
         1)
-            read -r -p "Enter the path for local storage: " LOCAL_STORAGE_PATH
+            LOCAL_STORAGE_PATH=$(whiptail --inputbox "Enter the path for local storage:" 10 60 3>&1 1>&2 2>&3)
             STORAGE_MOUNT="$LOCAL_STORAGE_PATH"
             ;;
         2)
@@ -281,7 +276,7 @@ select_storage() {
             setup_network_storage
             ;;
         *)
-            echo "Invalid choice. Exiting."
+            whiptail --title "Error" --msgbox "Invalid choice. Exiting." 10 60
             exit 1
             ;;
     esac
@@ -289,23 +284,20 @@ select_storage() {
 
 # Mount USB Storage
 setup_usb_storage() {
-    echo "Detecting USB drives..."
-    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}' | sed 's/[└├─]//g')
+    USB_DRIVES=$(lsblk -o NAME,SIZE,TYPE,FSTYPE | awk '/part/ {print "/dev/"$1, $2, $4}')
 
     if [[ -z "$USB_DRIVES" ]]; then
-        echo "No USB drives detected. Please ensure they are connected and retry."
+        whiptail --title "Error" --msgbox "No USB drives detected. Please ensure they are connected and retry." 10 60
         exit 1
     fi
 
-    echo "Available USB drives:"
-    echo "$USB_DRIVES" | nl
-    read -r -p "Select the drive number for storage: " STORAGE_SELECTION
-    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $1}')
-    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${STORAGE_SELECTION}p" | awk '{print $3}')
+    DRIVE_SELECTION=$(echo "$USB_DRIVES" | nl | whiptail --title "USB Storage" --menu "Select a drive:" 15 60 8 3>&1 1>&2 2>&3)
+    STORAGE_DRIVE=$(echo "$USB_DRIVES" | sed -n "${DRIVE_SELECTION}p" | awk '{print $1}')
+    STORAGE_FS=$(echo "$USB_DRIVES" | sed -n "${DRIVE_SELECTION}p" | awk '{print $3}')
 
     STORAGE_MOUNT="/mnt/storage"
-    echo "Mounting $STORAGE_DRIVE to $STORAGE_MOUNT..."
     sudo mkdir -p "$STORAGE_MOUNT"
+
     if [[ "$STORAGE_FS" == "ntfs" ]]; then
         sudo mount -t ntfs-3g "$STORAGE_DRIVE" "$STORAGE_MOUNT"
     else
@@ -317,10 +309,9 @@ setup_usb_storage() {
 
 # Mount Network Storage
 setup_network_storage() {
-    read -r -p "Enter the network share path (e.g., //server/share): " NETWORK_PATH
-    read -r -p "Enter the mount point (e.g., /mnt/network): " NETWORK_MOUNT
+    NETWORK_PATH=$(whiptail --inputbox "Enter the network share path (e.g., //server/share):" 10 60 3>&1 1>&2 2>&3)
+    NETWORK_MOUNT=$(whiptail --inputbox "Enter the mount point (e.g., /mnt/network):" 10 60 3>&1 1>&2 2>&3)
 
-    echo "Mounting network share..."
     sudo mkdir -p "$NETWORK_MOUNT"
     sudo mount -t cifs "$NETWORK_PATH" "$NETWORK_MOUNT" -o username=guest
 
@@ -332,9 +323,8 @@ update_fstab() {
     local mount_point="$1"
     local device="$2"
 
-    echo "Adding $mount_point to /etc/fstab..."
     if grep -q "$mount_point" /etc/fstab; then
-        echo "$mount_point is already in /etc/fstab. Skipping."
+        whiptail --title "Info" --msgbox "Mount point $mount_point already exists in /etc/fstab. Skipping." 10 60
     else
         echo "$device $mount_point auto defaults 0 2" | sudo tee -a /etc/fstab > /dev/null
     fi
@@ -348,7 +338,6 @@ assign_folders() {
 
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
         if [[ ! -d "$DIR" ]]; then
-            echo "Creating directory $DIR..."
             sudo mkdir -p "$DIR"
             sudo chmod 775 "$DIR"
             sudo chown "$USER:$USER" "$DIR"
@@ -358,10 +347,9 @@ assign_folders() {
 
 # Create Shares
 create_shares() {
-    echo "Choose sharing method:"
-    echo "1. Samba"
-    echo "2. NFS"
-    read -r -p "Enter your choice (1/2): " SHARE_METHOD
+    SHARE_METHOD=$(whiptail --title "Share Setup" --menu "Choose sharing method:" 15 60 4 \
+        "1" "Samba" \
+        "2" "NFS" 3>&1 1>&2 2>&3)
 
     case "$SHARE_METHOD" in
         1)
@@ -371,7 +359,7 @@ create_shares() {
             setup_nfs_shares
             ;;
         *)
-            echo "Invalid choice. Exiting."
+            whiptail --title "Error" --msgbox "Invalid choice. Exiting." 10 60
             exit 1
             ;;
     esac
@@ -379,15 +367,12 @@ create_shares() {
 
 # Setup Samba Shares
 setup_samba_shares() {
-    echo "Configuring Samba..."
     if ! command -v smbd &> /dev/null; then
-        echo "Samba is not installed. Installing now..."
-        sudo install_package install -y samba samba-common-bin
-    else
-        echo "Samba is already installed. Skipping installation."
+        sudo install_package samba samba-common-bin
     fi
 
     SAMBA_CONFIG="/etc/samba/smb.conf"
+
     if ! grep -q "\[Movies\]" "$SAMBA_CONFIG"; then
         sudo bash -c "cat >> $SAMBA_CONFIG" <<EOF
 
@@ -411,15 +396,15 @@ setup_samba_shares() {
 EOF
         sudo systemctl restart smbd
     fi
-    echo "Samba shares configured."
+
+    whiptail --title "Samba Shares" --msgbox "Samba shares configured." 10 60
 }
 
 # Setup NFS Shares
 setup_nfs_shares() {
-    echo "Configuring NFS..."
-    sudo install_package install -y nfs-kernel-server
-    EXPORTS_FILE="/etc/exports"
+    sudo install_package nfs-kernel-server
 
+    EXPORTS_FILE="/etc/exports"
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
         if ! grep -q "$DIR" "$EXPORTS_FILE"; then
             echo "$DIR *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a "$EXPORTS_FILE"
@@ -428,7 +413,8 @@ setup_nfs_shares() {
 
     sudo exportfs -ra
     sudo systemctl restart nfs-kernel-server
-    echo "NFS shares configured."
+
+    whiptail --title "NFS Shares" --msgbox "NFS shares configured." 10 60
 }
 
 # Update .env File
@@ -477,10 +463,6 @@ create_docker_compose() {
     fi    
 
     echo "Creating Docker Compose file from repository..."
-    
-    # URL of the Docker Compose file in the repository
-    COMPOSE_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/docker-compose.yml"
-    ENV_URL="https://raw.githubusercontent.com/Brownster/docker-compose-pi/refs/heads/main/.env"
     
     # Directory to save the Docker Compose file
     mkdir -p "$DOCKER_DIR"
@@ -542,20 +524,22 @@ install_dependencies() {
 # Set up Docker network for VPN containers
 setup_docker_network() {
     if [[ "$DOCKER_NETWORK_SUCCESS" == "1" ]]; then
-        echo "Docker Network is already deployed. Skipping."
+        whiptail --title "Docker Network" --msgbox "Docker Network is already set up. Skipping." 10 60
         return
     fi
-    echo "Creating Docker network for VPN..."
+
+    whiptail --title "Docker Network" --msgbox "Setting up Docker network for VPN..." 10 60
+
     if ! systemctl is-active --quiet docker; then
-        echo "Docker is not running. Starting Docker..."
+        whiptail --title "Docker Service" --msgbox "Starting Docker service..." 10 60
         sudo systemctl start docker
     fi
 
     if sudo docker network ls | grep -q "$CONTAINER_NETWORK"; then
-        echo "Docker network '$CONTAINER_NETWORK' already exists."
+        whiptail --title "Docker Network" --msgbox "Docker network '$CONTAINER_NETWORK' already exists." 10 60
     else
         sudo docker network create "$CONTAINER_NETWORK"
-        echo "Docker network '$CONTAINER_NETWORK' created."
+        whiptail --title "Docker Network" --msgbox "Docker network '$CONTAINER_NETWORK' created." 10 60
         sed -i 's/DOCKER_NETWORK_SUCCESS=0/DOCKER_NETWORK_SUCCESS=1/' "$ENV_FILE"
     fi
 }
@@ -731,7 +715,7 @@ main() {
                 ;;
         esac
     done
-    echo "Starting setup..."
+    whiptail --title "Setup Script" --msgbox "Welcome to the setup script!" 10 60
     create_env_file
     # Source the .env file after creating it
     if [[ -f "$ENV_FILE" ]]; then
@@ -753,9 +737,10 @@ main() {
     setup_docker_network
     deploy_docker_compose
     setup_mount_and_docker_start
-    echo "Setup complete. Update the .env file with credentials if not already done."
-    echo "Setup Summary:"
-    echo "Docker services are running:"
+    whiptail --title "Setup Complete" --msgbox "All steps completed successfully." 10 60
+    whiptail --title "Setup Complete" --msgbox  "Setup complete. Update the .env file with credentials if not already done." 10 60
+    whiptail --title "Setup Complete" --msgbox "Setup Summary:" 10 60
+    whiptail --title "Setup Complete" --msgbox "Docker services are running:" 10 60
 
     # Define the base URL using the server IP
     BASE_URL="http://${SERVER_IP}"
