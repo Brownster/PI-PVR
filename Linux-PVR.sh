@@ -125,7 +125,7 @@ main() {
 
 
     fi
-
+    generate_tailwind_html
 }
 
 main
