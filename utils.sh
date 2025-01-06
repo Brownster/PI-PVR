@@ -44,6 +44,8 @@ write_distro_to_env() {
     whiptail --title "Success" --msgbox "Detected distro: $DISTRO. Updated .env file." 10 60
 }
 
+
+# change package manager depending on distro
 install_package() {
     # Detect Linux Distro if DISTRO is not already set
     if [[ -z "${DISTRO:-}" ]]; then
@@ -56,8 +58,9 @@ install_package() {
         fi
     fi
 
+    echo "Detected DISTRO: $DISTRO"
+
     # Install packages based on detected distro
-    echo "Detected distribution: $DISTRO"
     case $DISTRO in
         ubuntu|debian)
             echo "Using apt to install: $*"
@@ -79,6 +82,7 @@ install_package() {
             ;;
     esac
 }
+
 
 # Main Execution
 #main() {
