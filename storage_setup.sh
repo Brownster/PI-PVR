@@ -218,5 +218,4 @@ final_review() {
 
     # Mark success
     sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
-    fi
 }
