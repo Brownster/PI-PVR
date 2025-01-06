@@ -76,7 +76,7 @@ EOF
 
 # Setup Tailscale
 setup_tailscale() {
-    if [[ "$tailscale_install_success" == "1" ]]; then
+    if [[ "$TAILSCALE_INSTALL_SUCCESS" == "1" ]]; then
         whiptail --title "Tailscale" --msgbox "PIA already setup. Skipping."
         return
     fi
@@ -94,7 +94,7 @@ setup_tailscale() {
         fi
 
         whiptail --title "Tailscale" --msgbox "Tailscale setup completed." 10 60
-        sed -i 's/tailscale_install_success=0/tailscale_install_success=1/' "$ENV_FILE"
+        sed -i 's/TAILSCALE_INSTALL_SUCCESS=0/TAILSCALE_INSTALL_SUCCESS=1/' "$ENV_FILE"
     fi
 }
 
