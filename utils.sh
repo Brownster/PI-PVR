@@ -48,22 +48,40 @@ write_distro_to_env() {
 install_package() {
     case $DISTRO in
         ubuntu|debian)
-            echo "Updating package database with apt-get..."
-            sudo apt-get update
-            echo "Installing packages: $*"
-            sudo apt-get install -y "$@"
+            if [[ "$1" == "remove" ]]; then
+                shift
+                echo "Removing packages with apt-get: $*"
+                sudo apt-get remove -y "$@"
+            else
+                echo "Updating package database with apt-get..."
+                sudo apt-get update
+                echo "Installing packages with apt-get: $*"
+                sudo apt-get install -y "$@"
+            fi
             ;;
         fedora|centos|rhel)
-            echo "Updating package database with dnf..."
-            sudo dnf upgrade -y
-            echo "Installing packages: $*"
-            sudo dnf install -y "$@"
+            if [[ "$1" == "remove" ]]; then
+                shift
+                echo "Removing packages with dnf: $*"
+                sudo dnf remove -y "$@"
+            else
+                echo "Updating package database with dnf..."
+                sudo dnf upgrade -y
+                echo "Installing packages with dnf: $*"
+                sudo dnf install -y "$@"
+            fi
             ;;
         arch)
-            echo "Updating package database with pacman..."
-            sudo pacman -Syu --noconfirm
-            echo "Installing packages: $*"
-            sudo pacman -S --noconfirm "$@"
+            if [[ "$1" == "remove" ]]; then
+                shift
+                echo "Removing packages with pacman: $*"
+                sudo pacman -Rns --noconfirm "$@"
+            else
+                echo "Updating package database with pacman..."
+                sudo pacman -Syu --noconfirm
+                echo "Installing packages with pacman: $*"
+                sudo pacman -S --noconfirm "$@"
+            fi
             ;;
         *)
             echo "Unsupported Linux distribution: $DISTRO"
