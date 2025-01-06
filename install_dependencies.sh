@@ -22,7 +22,7 @@ install_dependencies() {
 
     whiptail --title "Install Dependancies" --msgbox  "Uninstalling any conflicting Docker packages..." 10 60
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
-        sudo install_package remove -y "$pkg"
+        install_package remove -y "$pkg"
     done
 
     whiptail --title "Install Dependancies" --msgbox  "Adding Docker's official GPG key and repository for Docker..." 10 60
