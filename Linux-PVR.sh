@@ -65,8 +65,9 @@ main() {
     fi
     detect_distro
     write_distro_to_env
-    setup_tailscale
     install_dependencies
+    setup_tailscale
+    prompt_for_vpn_credentials
     setup_pia_vpn
     create_docker_compose
     create_config_json
