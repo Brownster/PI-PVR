@@ -34,6 +34,9 @@ source ./create_configs.sh
 source ./deploy_docker.sh
 source ./mount_and_start.sh
 source ./update_compose.sh
+source ./display_summary.sh
+source ./fstab.sh
+
 
 # Main setup function
 main() {
