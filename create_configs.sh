@@ -98,6 +98,18 @@ setup_tailscale() {
     fi
 }
 
+# Prompt user for missing VPN credentials
+prompt_for_vpn_credentials() {
+    if [[ "$PIA_USERNAME" == "your_vpn_username" || -z "$PIA_USERNAME" ]]; then
+        PIA_USERNAME=$(whiptail --inputbox "Enter your VPN username:" 10 60 "" 3>&1 1>&2 2>&3)
+        sed -i "s/^PIA_USERNAME=.*/PIA_USERNAME=$PIA_USERNAME/" "$ENV_FILE"
+    fi
+
+    if [[ "$PIA_PASSWORD" == "your_vpn_password" || -z "$PIA_PASSWORD" ]]; then
+        PIA_PASSWORD=$(whiptail --passwordbox "Enter your VPN password:" 10 60 "" 3>&1 1>&2 2>&3)
+        sed -i "s/^PIA_PASSWORD=.*/PIA_PASSWORD=$PIA_PASSWORD/" "$ENV_FILE"
+    fi
+}
 
 setup_pia_vpn() {
     if [[ "$PIA_SETUP_SUCCESS" == "1" ]]; then
