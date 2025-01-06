@@ -18,8 +18,8 @@ install_dependencies() {
 
     # Install required dependencies, including git
     whiptail --title "Install Dependancies" --msgbox "Installing dependencies..." 10 60
-    sudo apt update
-    sudo apt install -y curl jq git
+     install_package update
+     install_package install -y curl jq git
 
     whiptail --title "Install Dependancies" --msgbox  "Uninstalling any conflicting Docker packages..." 10 60
     for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
@@ -27,8 +27,8 @@ install_dependencies() {
     done
 
     whiptail --title "Install Dependancies" --msgbox  "Adding Docker's official GPG key and repository for Docker..." 10 60
-    sudo install_package update
-    sudo install_package install -y ca-certificates curl
+    install_package update
+    install_package install -y ca-certificates curl
     sudo install -m 0755 -d /etc/apt/keyrings
     sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
     sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -39,10 +39,10 @@ install_dependencies() {
     sudo install_package update
 
     whiptail --title "Install Dependancies" --msgbox  "Installing Docker Engine, Docker Compose, and related packages..." 10 60
-    sudo install_package install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    install_package install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     whiptail --title "Install Dependancies" --msgbox  "Installing other required dependencies: curl, jq, git..." 10 60
-    sudo install_package install -y curl jq git
+    install_package install -y curl jq git
 
     whiptail --title "Install Dependancies" --msgbox  "Verifying Docker installation..." 10 60
     #sudo docker run hello-world
