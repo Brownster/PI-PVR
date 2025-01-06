@@ -26,7 +26,6 @@ run() {
 
 source ./docker_setup.sh
 source ./storage_setup.sh
-source ./vpn_setup.sh
 source ./install_dependencies.sh
 source ./utils.sh
 source ./create_env.sh
