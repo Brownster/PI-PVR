@@ -9,6 +9,7 @@ load_env
 
 # Install required dependencies
 install_dependencies() {
+    echo "Entering install_dependencies function"
     load_env
     if [[ "$INSTALL_DEPENDANCIES_SUCCESS" == "1" ]]; then
         whiptail --title "Install Dependancies" --msgbox "Docker Compose stack is already deployed. Skipping." 10 60
