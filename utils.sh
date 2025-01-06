@@ -12,7 +12,7 @@ else
     exit 1
 fi
 
-# utils.sh
+# Load the environment
 load_env() {
     if [[ -f "$ENV_FILE" ]]; then
         source "$ENV_FILE"
@@ -22,8 +22,7 @@ load_env() {
     fi
 }
 
-
-#Detect Linux Distro
+# Detect Linux Distro
 detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -34,7 +33,7 @@ detect_distro() {
     fi
 }
 
-#Alter install based on $DISTRO
+# Install packages based on distro
 install_package() {
     case $DISTRO in
         ubuntu|debian)
@@ -58,6 +57,16 @@ write_distro_to_env() {
     if grep -q "^DISTRO=" "$ENV_FILE"; then
         sed -i "s/^DISTRO=.*/DISTRO=$DISTRO/" "$ENV_FILE"
     else
+        echo "#host Distro" >> "$ENV_FILE"
         echo "DISTRO=$DISTRO" >> "$ENV_FILE"
     fi
 }
+
+# Main Execution
+main() {
+    detect_distro
+    write_distro_to_env
+    whiptail --title "Success" --msgbox "Detected distro: $DISTRO. Updated .env file." 10 60
+}
+
+main
