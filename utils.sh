@@ -45,39 +45,28 @@ write_distro_to_env() {
 }
 
 
-# change package manager depending on distro
 install_package() {
-    # Detect Linux Distro if DISTRO is not already set
-    if [[ -z "${DISTRO:-}" ]]; then
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            DISTRO=$ID
-        else
-            whiptail --title "Error" --msgbox "Unsupported Linux distribution. Unable to detect distro." 10 60
-            exit 1
-        fi
-    fi
-
-    echo "Detected DISTRO: $DISTRO"
-
-    # Install packages based on detected distro
     case $DISTRO in
         ubuntu|debian)
-            echo "Using apt to install: $*"
+            echo "Updating package database with apt-get..."
             sudo apt-get update
+            echo "Installing packages: $*"
             sudo apt-get install -y "$@"
             ;;
         fedora|centos|rhel)
-            echo "Using dnf to install: $*"
+            echo "Updating package database with dnf..."
+            sudo dnf upgrade -y
+            echo "Installing packages: $*"
             sudo dnf install -y "$@"
             ;;
         arch)
-            echo "Using pacman to install: $*"
+            echo "Updating package database with pacman..."
             sudo pacman -Syu --noconfirm
+            echo "Installing packages: $*"
             sudo pacman -S --noconfirm "$@"
             ;;
         *)
-            whiptail --title "Error" --msgbox "Unsupported Linux distribution: $DISTRO" 10 60
+            echo "Unsupported Linux distribution: $DISTRO"
             exit 1
             ;;
     esac
