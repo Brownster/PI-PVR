@@ -98,6 +98,20 @@ setup_tailscale() {
     fi
 }
 
+
+# Function to show progress
+show_progress() {
+    local command="$1"
+    local message="$2"
+    whiptail --title "Progress" --infobox "$message" 10 60
+    eval "$command" >/dev/null 2>&1
+    if [[ $? -ne 0 ]]; then
+        whiptail --title "Error" --msgbox "An error occurred while: $message" 10 60
+        exit 1
+    fi
+}
+
+
 # Prompt user for missing VPN credentials
 prompt_for_vpn_credentials() {
     if [[ "$PIA_USERNAME" == "your_vpn_username" || -z "$PIA_USERNAME" ]]; then
