@@ -60,13 +60,14 @@ write_distro_to_env() {
         echo "#host Distro" >> "$ENV_FILE"
         echo "DISTRO=$DISTRO" >> "$ENV_FILE"
     fi
-}
-
-# Main Execution
-main() {
-    detect_distro
-    write_distro_to_env
     whiptail --title "Success" --msgbox "Detected distro: $DISTRO. Updated .env file." 10 60
 }
 
-main
+# Main Execution
+#main() {
+#    detect_distro
+#    write_distro_to_env
+#    whiptail --title "Success" --msgbox "Detected distro: $DISTRO. Updated .env file." 10 60
+#}
+
+#main
