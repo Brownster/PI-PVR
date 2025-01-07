@@ -133,7 +133,7 @@ create_shares() {
 # Setup Samba Shares
 setup_samba_shares() {
     if ! command -v smbd &> /dev/null; then
-        sudo install_package samba samba-common-bin
+        install_package samba samba-common-bin
     fi
 
     SAMBA_CONFIG="/etc/samba/smb.conf"
