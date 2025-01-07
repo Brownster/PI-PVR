@@ -212,16 +212,16 @@ final_review() {
     summary+="TV Shows folder: $TVSHOWS_DIR\n"
     summary+="Downloads folder: $DOWNLOADS_DIR\n\n"
 
-    if [[ "$SHARE_METHOD" == "1" ]]; then
-        summary+="Samba shares available at:\n"
-        summary+="\\\\${SERVER_IP}\\Movies\n"
-        summary+="\\\\${SERVER_IP}\\TVShows\n"
-        summary+="\\\\${SERVER_IP}\\Downloads\n"
-    elif [[ "$SHARE_METHOD" == "2" ]]; then
-        summary+="NFS shares available at:\n"
-        summary+="${SERVER_IP}:${MOVIES_DIR}\n"
-        summary+="${SERVER_IP}:${TVSHOWS_DIR}\n"
-        summary+="${SERVER_IP}:${DOWNLOADS_DIR}\n"
+#    if [[ "$SHARE_METHOD" == "1" ]]; then
+#        summary+="Samba shares available at:\n"
+#        summary+="\\\\${SERVER_IP}\\Movies\n"
+#        summary+="\\\\${SERVER_IP}\\TVShows\n"
+#        summary+="\\\\${SERVER_IP}\\Downloads\n"
+#    elif [[ "$SHARE_METHOD" == "2" ]]; then
+#        summary+="NFS shares available at:\n"
+#        summary+="${SERVER_IP}:${MOVIES_DIR}\n"
+#        summary+="${SERVER_IP}:${TVSHOWS_DIR}\n"
+#        summary+="${SERVER_IP}:${DOWNLOADS_DIR}\n"
     fi
 
     # Display the summary using whiptail
