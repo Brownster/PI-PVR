@@ -205,7 +205,6 @@ EOF
 }
 
 # Final Review
-# Final Review
 final_review() {
     local summary="Setup complete. Summary:\n\n"
     summary+="Storage mounted at: $STORAGE_MOUNT\n"
@@ -225,8 +224,13 @@ final_review() {
         summary+="${SERVER_IP}:${DOWNLOADS_DIR}\n"
     fi
 
+    # Display the summary using whiptail
     whiptail --title "Setup Complete" --msgbox "$summary" 20 70
 
-    # Mark success
+    # Mark success in .env (no backslashes here)
     sed -i 's/SHARE_SETUP_SUCCESS=0/SHARE_SETUP_SUCCESS=1/' "$ENV_FILE"
+
+    # Optionally log the Samba/NFS shares for the user to reference later
+    echo -e "$summary" > "$HOME/storage_setup_summary.txt"
 }
+
