@@ -233,4 +233,3 @@ final_review() {
     # Optionally log the Samba/NFS shares for the user to reference later
     echo -e "$summary" > "$HOME/storage_setup_summary.txt"
 }
-
