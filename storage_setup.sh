@@ -130,10 +130,21 @@ create_shares() {
     esac
 }
 
-# Setup Samba Shares
+#SETUP SAMBA SHARES
 setup_samba_shares() {
     if ! command -v smbd &> /dev/null; then
-        install_package samba samba-common-bin
+        case $DISTRO in
+            ubuntu|debian)
+                install_package samba samba-common-bin
+                ;;
+            fedora|centos|rhel)
+                install_package samba
+                ;;
+            *)
+                whiptail --title "Error" --msgbox "Unsupported Linux distribution for Samba setup." 10 60
+                exit 1
+                ;;
+        esac
     fi
 
     SAMBA_CONFIG="/etc/samba/smb.conf"
@@ -167,7 +178,7 @@ EOF
 
 # Setup NFS Shares
 setup_nfs_shares() {
-    sudo install_package nfs-kernel-server
+    install_package nfs-kernel-server
 
     EXPORTS_FILE="/etc/exports"
     for DIR in "$MOVIES_DIR" "$TVSHOWS_DIR" "$DOWNLOADS_DIR"; do
