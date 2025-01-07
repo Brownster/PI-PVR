@@ -29,7 +29,7 @@ ensure_docker_dir() {
 
 # Create Docker Compose file
 create_docker_compose() {
-    if [[ "$docker_compose_success" == "1" ]]; then
+    if [[ "$DOCKER_COMPOSE_SUCCESS" == "1" ]]; then
         whiptail --title "Docker Compose" --msgbox  "Docker Compose stack is already deployed. Skipping." 10 60
         return
     fi    
@@ -44,7 +44,7 @@ create_docker_compose() {
         whiptail --title "Docker Compose" --msgbox  "Docker Compose file downloaded successfully to $DOCKER_DIR/docker-compose.yml" 10 60
 
     fi    
-    sed -i 's/docker_compose_success=0/docker_compose_success=1/' "$ENV_FILE"
+    sed -i 's/DOCKER_COMPOSE_SUCCESS=0/DOCKER_COMPOSE_SUCCESS=1/' "$ENV_FILE"
 }
 
 
