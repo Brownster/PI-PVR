@@ -1,210 +1,253 @@
-# 🐳 Docker Media Server Stack with VPN, Tailscale, and Media Management
+☠️ Ahoy! The Raspberry Pi Docker Stack o’ the High Seas (With VPN, Tailscale, & Media Management) ☠️
 
-This project simplifies the setup of a powerful Docker-based media server stack for Raspberry Pi and other Linux-based systems. It features secure VPN integration, Tailscale for remote access, and a suite of media management tools. The stack is designed for ease of use, scalability, and customization.
+Avast, ye scurvy seadogs! This here treasure chest o’ a project be hoistin’ a Docker-based media server stack on yer Raspberry Pi or any Linux-based vessel. We’ve got VPN rigging, Tailscale fer secure remote access, an' a fine haul of media management tools. All be highly customizable, deployable with Docker Compose, an' kept shipshape via GitHub updates—like a well-trained parrot! 🦜
+⚓️ Features
 
----
+    VPN Integration: Arr, routes all yer external traffic through a secure VPN container (powered by Gluetun).
 
-## 🌟 Features
+    Tailscale: Hoist the Tailscale sails fer secure remote access to yer server an’ Docker containers by their Tailscale IP.
 
-- **VPN Integration**  
-  Routes external traffic through a secure VPN container (powered by Gluetun).  
+    Media Management Tools:
 
-- **Tailscale Integration**  
-  Provides secure remote access to your server and Docker containers.
+        🗂️ Jackett: Indexer proxy fer them torrent an’ Usenet sites.
 
-- **Media Management Tools**  
-  - 🐂 **Jackett**: Indexer proxy for torrent and Usenet sites.  
-  - 🎥 **Radarr**: Movie downloader and organizer.  
-  - 📺 **Sonarr**: TV show downloader and organizer.  
-  - 🌐 **Transmission**: Torrent downloader.  
-  - 📦 **NZBGet**: Usenet downloader.  
-  - 📻 **Get IPlayer**: BBC iPlayer downloader with SonarrAutoImport.  
-  - 🎧 **Lidarr**: Music download manager.  
-  - 🎧 **Airsonic**: Personal media streamer for audio collections.  
-  - 📖 **Audiobookshelf**: Audiobook and podcast server.  
-  - 🔧 **Server Health Web Manager**: Web-based server monitoring and management tool.  
-  - 🔄 **RTDClient**: Download manager for torrents.  
-  - 🔹 **Jellyfin**: Media server for streaming.  
+        🎥 Radarr: Manages yer movie booty.
 
-- **File Sharing**  
-  - **Samba**: Cross-platform file sharing for Windows, macOS, and Linux.  
-  - **NFS**: Lightweight file sharing for Linux-based environments.  
+        📺 Sonarr: Keeps yer TV shows in line.
 
-- **Automatic Updates**  
-  Easily update your stack by pulling the latest `docker-compose.yml` from GitHub.  
+        🌐 Transmission: Torrent downloader to snag yer treasures.
 
-- **Customizable**  
-  Modify container names, ports, and settings through the `.env` file.
+        📦 NZBGet: Hauls in yer Usenet plunder.
 
-- **Watchtower**  
-  Automatically updates Docker containers outside the VPN.
+        📻 Get IPlayer: Downloads BBC iPlayer bounty, complete with SonarrAutoImport.
 
----
+        🎛️ Jellyfin: Aye, a slick media server fer streamin’ all yer loot.
 
-## 🛠️ Requirements
+    Watchtower: Auto-updates Docker containers outside the VPN—no scurvy containers here!
 
-- Raspberry Pi (tested on Pi 5 with 8GB RAM) or a Linux-based system.  
-- Docker and Docker Compose (automatically installed by the script).  
-- Private Internet Access (PIA) as the VPN provider (support for more providers planned).  
-- A Tailscale account for secure remote access.  
+    File Sharing:
 
----
+        Samba fer Windows/macOS/Linux, or
 
-## 🚀 Installation
+        NFS fer yer Linux-only fleets.
 
-1. **Clone the Repository**  
-   ```bash
-   git clone https://github.com/Brownster/PI-PVR.git
-   cd PI-PVR
-   ```
+    Customizable: Rename containers, change ports, tweak settings—arr, do as ye please!
 
-2. **Make the Setup Script Executable**  
-   ```bash
-   chmod +x setup.sh
-   ```
+    Automatic Updates: Pulls the latest docker-compose.yml from GitHub an’ redeploys with a single command. Shiver me timbers!
 
-3. **Run the Setup Script**  
-   ```bash
-   ./setup.sh
-   ```
-   Follow the on-screen prompts to configure the environment, VPN, and file sharing.
+image
+🏴‍☠️ Requirements
 
----
+    A Raspberry Pi or Linux-based rig (tested on Raspberry Pi 5 with 8GB o’ RAM).
 
-## 🛠️ Configuration
+    Docker an’ Docker Compose installed (our script can handle that, me hearties!).
 
-### Environment Variables
-The script generates a `.env` file for managing sensitive data. Edit this file to update your configuration:  
-```bash
+    Private Internet Access (PIA) as VPN provider (coming soon: AirVPN, Mullvad, NordVPN, etc. — the whole pirate fleet!).
+
+    A Tailscale account fer secure remote boardin’.
+
+⚙️ Installation
+Option 1: Command Line Installation
+
+    Clone this repository into yer treasure hold:
+
+git clone https://github.com/Brownster/PI-PVR.git
+cd PI-PVR
+
+Make the setup script executable:
+
+chmod +x pi-pvr.sh
+
+Run the setup script:
+
+    ./pi-pvr.sh
+
+    Answer the script’s questions, set up yer environment, VPN, an’ file sharing like a true pirate captain.
+
+Option 2: Web-Based Installation (Recommended)
+
+Fer a swashbucklin’ web-based method:
+
+chmod +x web-install.sh
+./web-install.sh
+
+This spins up a fancy web installer at http://<your-pi-ip>:8080 so ye can:
+
+    Configure all yer settings through a friendly pirate interface
+
+    Watch installation progress in real-time
+
+    Easily reconfigure yer rig after installation
+
+    Access a dashboard to manage yer media loot
+
+Alternatively, run:
+
+chmod +x pi-pvr.sh
+./pi-pvr.sh --web-installer
+
+to set sail with the web-based route.
+🏴 Usage
+Debug Mode
+
+Need extra logs, ye say? Hoist the --debug flag:
+
+./pi-pvr.sh --debug
+
+Update Docker Compose Stack
+
+Fetch the latest docker-compose.yml from GitHub an’ redeploy the whole armada:
+
+./pi-pvr.sh --update
+
+⚓ Configuration
+Environment Variables
+
+The script crafts an .env file to stash yer secrets. Ye can open it up an’ edit:
+
 nano ~/docker/.env
-```
 
-Example `.env` file:
-```plaintext
-PIA_USERNAME=your_pia_username
-PIA_PASSWORD=your_pia_password
-TAILSCALE_AUTH_KEY=your_tailscale_auth_key
+Example:
+
+PIA_USERNAME=yer_pia_username
+PIA_PASSWORD=yer_pia_password
+TAILSCALE_AUTH_KEY=yer_tailscale_auth_key
 TIMEZONE=Europe/London
 MOVIES_FOLDER="Movies"
 TVSHOWS_FOLDER="TVShows"
 DOWNLOADS="/mnt/storage/downloads"
-```
 
----
+File Sharing
 
-## 📂 File Sharing
+Choose yer poison:
 
-The script supports two sharing methods:  
-- **Samba**: For cross-platform environments.  
-- **NFS**: Recommended for Linux-only systems.  
+    Samba: Cross-platform for all the landlubbers out there.
 
-Configure your preferred method during setup or edit the `.env` file.
+    NFS: Linux-only, for the stouthearted.
 
----
+Configure it durin’ setup or edit yer .env.
+Updating from GitHub
 
-## 🔄 Updates
+Set DOCKER_COMPOSE_URL in yer .env to link to yer docker-compose.yml on GitHub:
 
-Fetch the latest `docker-compose.yml` from GitHub and redeploy the stack:
-```bash
-./setup.sh --update
-```
+DOCKER_COMPOSE_URL=https://raw.githubusercontent.com/yourusername/yourrepo/main/docker-compose.yml
 
-Ensure `DOCKER_COMPOSE_URL` in `.env` points to the correct URL.
+🏴‍☠️ Services and Ports
+Service	Default Port	URL
+VPN	N/A	N/A
+Jackett	9117	http://<IP>:9117
+Sonarr	8989	http://<IP>:8989
+Radarr	7878	http://<IP>:7878
+Transmission	9091	http://<IP>:9091
+NZBGet	6789	http://<IP>:6789
+Get IPlayer	1935	http://<IP>:1935
+Jellyfin	8096	http://<IP>:8096
+Watchtower	N/A	(No Web UI)
 
----
+When these beauties be up an’ runnin’, ye’ll find the URLs in:
 
-## 🔦️ Services and Ports
+~/services_urls.txt
 
-| Service      | Default Port | URL                              |
-|--------------|--------------|----------------------------------|
-| VPN          | N/A          | N/A                              |
-| Jackett      | 9117         | `http://<IP>:9117`               |
-| Sonarr       | 8989         | `http://<IP>:8989`               |
-| Radarr       | 7878         | `http://<IP>:7878`               |
-| Transmission | 9091         | `http://<IP>:9091`               |
-| NZBGet       | 6789         | `http://<IP>:6789`               |
-| Get IPlayer  | 1935         | `http://<IP>:1935`               |
-| Jellyfin     | 8096         | `http://<IP>:8096`               |
-| Watchtower   | N/A          | (No Web UI)                      |
+☠️ How It Works
 
-Generated URLs are saved to:  
-`~/services_urls.txt`
+    VPN Routing: All yer media scallywags route traffic through the VPN container. If it disconnects, the traffic be scuppered for privacy!
 
----
+    Tailscale: Provides a secure passage to yer services, sidesteppin’ the VPN if needed.
 
-## ⚙️ How It Works
+    Watchtower: Auto-updates Docker containers outside the VPN so the scurvy Docker registry can be reached.
 
-- **VPN Routing**  
-  All media apps route traffic through the VPN container. Traffic is blocked if the VPN disconnects.  
+🏴‍☠️ Testing
 
-- **Tailscale**  
-  Provides secure access to all services via your Tailscale IP.  
+    Local Access: Point yer browser to http://<local-IP>:<port>.
 
-- **Watchtower**  
-  Updates containers outside the VPN for unrestricted registry access.  
+    Tailscale Access: Replace <local-IP> with yer Tailscale IP.
 
----
+    VPN Routing: Check that Transmission's traffic be goin’ through the VPN:
 
-## 🧪 Testing
-
-### Accessing Services:
-- **Local Access**: `http://<local-IP>:<port>`  
-- **Tailscale Access**: Replace `<local-IP>` with your Tailscale IP.
-
-### Verify VPN Routing:
-```bash
 docker exec -it transmission curl ifconfig.me
-```
 
-### Logs:
-- Watchtower logs for updates:
-  ```bash
-  docker logs watchtower
-  ```
-- VPN logs:
-  ```bash
-  docker logs vpn
-  ```
+Logs: Keep an eye on yer Watchtower logs:
 
----
+    docker logs watchtower
 
-## 🕸️ Troubleshooting
+🔧 Troubleshooting
 
-- **VPN Issues**:  
-  - Ensure correct PIA credentials in `.env`.  
-  - Check VPN logs:
-    ```bash
-    docker logs vpn
-    ```
+    VPN Woes: Confirm yer PIA username/password in .env or check the VPN logs:
 
-- **Tailscale Authentication**:  
-  ```bash
-  sudo tailscale up
-  ```
+docker logs vpn
 
----
+Tailscale Authentication:
 
-## 🤝 Contributing
+    sudo tailscale up
 
-Contributions are welcome! Open an issue or submit a pull request to enhance the project.
+🤝 Contributing
 
----
+All pirates be welcome! Open an issue or cast a pull request into the briny deep to improve this project.
+🏴‍☠️ License
 
-## 📜 License
+This project sails under the MIT License flag. Hoist it high, me mateys!
+🎉 Acknowledgements
 
-This project is licensed under the MIT License.
+Raise a tankard o’ grog to:
 
----
+    Docker
 
-## 🙏 Acknowledgements
+    Gluetun VPN
 
-Special thanks to:  
-- [Docker](https://www.docker.com)  
-- [Gluetun VPN](https://github.com/qdm12/gluetun)  
-- [LinuxServer.io](https://www.linuxserver.io)  
-- [Sonarr](https://sonarr.tv)  
-- [Radarr](https://radarr.video)  
-- [Tailscale](https://tailscale.com)  
+    LinuxServer.io
 
----
+    Sonarr
 
+    Radarr
+
+    Tailscale
+
+Now set sail, ye sea dogs, an’ enjoy the spoils of yer Docker-based media treasure trove! 🏴‍☠️
+
+The Docker Shanty
+(To be roared at full volume ‘round the mast!)
+
+Verse 1
+Oh, we set sail on a Pi so wee,
+With Docker images bold and free,
+Gluetun VPN’s the guardin’ mate,
+Keeps our secrets locked behind the gate!
+Jellyfin streams across the foam,
+Arr, it’s the best sea-video home!
+
+Chorus
+Yo-ho-ho, a Docker we’ll run!
+Jackett, Radarr, Transmission for fun!
+Raise the Tailscale flag, let’s roam the seas,
+Our PVR’s a pirate’s breeze!
+
+Verse 2
+Sonarr fetches the shows to see,
+While NZBGet hauls from the news so free,
+The Samba share be stowed below,
+Where the scallywags drop their spoils in tow!
+Watchtower’s perched up high on the mast,
+Updates quick with a mighty blast!
+
+(Repeat Chorus)
+Yo-ho-ho, a Docker we’ll run!
+Jackett, Radarr, Transmission for fun!
+Raise the Tailscale flag, let’s roam the seas,
+Our PVR’s a pirate’s breeze!
+
+Verse 3
+In the web installer’s harbor we rest,
+Setting up apps that pass every test,
+We rummage for logs in hidden stows,
+If trouble brews, we tweak as it goes!
+From Pi to Pi, our legend shall spread,
+“Arr, the Pi-PVR’s best!” they said!
+
+(Final Chorus)
+Yo-ho-ho, a Docker we’ll run!
+Jackett, Radarr, Transmission for fun!
+Raise the Tailscale flag, let’s roam the seas,
+Our PVR’s a pirate’s breeze!
+Our PVR’s a pirate’s breeeeze!
+
+Yo-ho! 🏴‍☠️
