@@ -1,0 +1,302 @@
+version: "3.8"
+services:
+  vpn:
+    image: qmcgaw/gluetun:latest
+    container_name: vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - "$HOME/docker/vpn:/gluetun"
+    env_file:
+      - /home/lucy/docker/vpn/.env
+    healthcheck:
+      test: curl --fail http://localhost:8000 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    ports:
+      - 9117:9117
+      - 8989:8989
+      - 7878:7878
+      - 9091:9091
+      - 6789:6789
+      - 6500:6500
+      - 8686:8686
+      - 8080:8080
+    networks:
+      - vpn_network
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    network_mode: bridge
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Europe/London
+    volumes:
+      - $HOME/docker/jellyseerr/config:/app/config
+    ports:
+      - 5055:5055
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+      retries: 3
+    restart: unless-stopped
+
+  jackett:
+    image: linuxserver/jackett:latest
+    container_name: jackett
+    network_mode: "service:vpn"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/jackett:/config
+      - /mnt/downloads:/downloads/completed/
+    restart: unless-stopped
+
+  RGSX:
+    image: ghcr.io/brownster/rgsx-docker:latest
+    container_name: rgsx
+    network_mode: bridge
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - 8181:8080
+    volumes:
+      - $HOME/docker/rgsx/saves:/saves
+      - /mnt/storage/roms:/roms
+    restart: unless-stopped
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:vpn"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/sonarr:/config
+      - /mnt/storage/TVShows:/tv
+      - /mnt/downloads:/downloads
+      - /mnt/downloads/completed/transmission/iplayar:/downloads/iplayar
+    restart: unless-stopped
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:vpn"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/radarr:/config
+      - /mnt/storage/Movies:/movies
+      - /mnt/downloads:/downloads
+    restart: unless-stopped
+
+  yt-to-jellyfin:
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/brownster/yt-to-jellyfin:latest
+    # For local development, comment above and uncomment below:
+    # build: .
+    container_name: yt-to-jellyfin
+    volumes:
+      - /mnt/storage:/media
+      - $HOME/docker/yt-to-jellyfin/config:/config
+    ports:
+      - "8000:8000"
+    environment:
+      - OUTPUT_DIR=/media
+      - VIDEO_QUALITY=1080
+      - USE_H265=true
+      - CRF=28
+      - CLEAN_FILENAMES=true
+      - WEB_ENABLED=true
+      - WEB_PORT=8000
+      - WEB_HOST=0.0.0.0
+      # Jellyfin integration settings
+      - JELLYFIN_ENABLED=false
+      - JELLYFIN_TV_PATH=/path/to/jellyfin/tv
+      - JELLYFIN_HOST=localhost
+      - JELLYFIN_PORT=8096
+      - JELLYFIN_API_KEY=
+      # Cookies settings - defaults to /config/cookies.txt inside container
+      - COOKIES_PATH=/config/cookies.txt
+    # Command to run only the web interface
+    command: --web-only
+  transmission:
+    image: linuxserver/transmission:latest
+    container_name: transmission
+    network_mode: "service:vpn"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/transmission:/config
+      - /mnt/downloads:/downloads
+    restart: unless-stopped
+
+  rdtclient:
+    image: rogerfar/rdtclient
+    container_name: rdtclient
+    network_mode: "service:vpn"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/rdtclient:/data/db
+      - /mnt/downloads:/downloads
+    logging:
+       driver: json-file
+       options:
+          max-size: 10m
+    restart: unless-stopped
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    network_mode: "service:vpn"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - $HOME/docker/sabnzbd/config:/config
+      - /mnt/downloads/incomplete/sabnzbd:/incomplete-downloads
+      - /mnt/downloads:/downloads
+    restart: unless-stopped
+
+  get_iplayer:
+    image: ghcr.io/thespad/get_iplayer:latest
+    container_name: get_iplayer
+    network_mode: bridge
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+      - INCLUDERADIO=false
+      - ENABLEIMPORT=true
+    volumes:
+      - $HOME/docker/get_iplayer/config:/config
+      - /mnt/downloads/incomplete/iplayer:/downloads/incomplete
+    ports:
+      - 1935:1935
+    restart: unless-stopped
+
+  lazylibrarian:
+    image: linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    network_mode: bridge
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/lazylibrarian:/config
+      - /mnt/storage/books:/books
+      - /mnt/storage/audiobooks:/audiobooks
+      - /mnt/downloads/completed/books:/downloads
+#    docker_mods:
+#      - universal-calibre
+    ports:
+      - 5299:5299
+    restart: unless-stopped
+
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    network_mode: bridge
+    ports:
+      - 13378:80
+    volumes:
+      - /mnt/storage/audiobooks:/audiobooks
+      - /mnt/storage/podcasts:/podcasts
+      - $HOME/docker/audiobookshelf/config:/config
+      - $HOME/docker/audiobookshelf/metadata:/metadata
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    network_mode: bridge
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+      - ND_LASTFM_APIKEY=450e8b940228b549b766270f90d67740
+      - ND_LASTFM_SECRET=113f77e069b7e9e5d93f66d3e72aa0a2
+    volumes:
+      - $HOME/docker/navidrome:/data"
+      - /mnt/storage/music:/music:ro
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    container_name: jellyfin
+    network_mode: bridge
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $HOME/docker/jellyfin:/config
+      - /mnt/storage/:/media
+    ports:
+      - 8096:8096
+      - 8920:8920
+    restart: unless-stopped
+
+  pi-health-dashboard:
+    image: brownster/pi-health:latest
+    container_name: pi-health-dashboard
+    environment:
+      - TZ=${TIMEZONE}
+      - DISK_PATH=/mnt/storage
+      - DISK_PATH_2=/mnt/downloads
+      - DOCKER_COMPOSE_PATH=/config/docker-compose.yml
+      - ENV_FILE_PATH=/config/.env
+      - BACKUP_DIR=/config/backups
+    ports:
+      - 8100:8080
+    volumes:
+      - /proc:/host_proc:ro
+      - /sys:/host_sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - $HOME/docker/:/config
+      - /mnt/storage:/mnt/storage
+      - /mnt/downloads:/mnt/downloads
+    restart: unless-stopped
+
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE="vpn,sonarr,radarr,pi-health-dashboard,airsonic-advanced,audiobookshelf,get_iplayer,sabnzbd,rdtclient,transmission,lidarr,navidrome"
+    restart: unless-stopped
+
+networks:
+  vpn_network:
+    driver: bridge
